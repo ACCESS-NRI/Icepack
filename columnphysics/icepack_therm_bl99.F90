@@ -12,6 +12,7 @@
       module icepack_therm_bl99
 
       use icepack_kinds
+      use ESMF
       use icepack_parameters, only: c0, c1, c2, p1, p5, puny
 #ifdef CESMCOUPLED
       use icepack_parameters, only: p01
@@ -70,7 +71,7 @@
                                       fsensn,   flatn,    &
                                       flwoutn,  fsurfn,   &
                                       fcondtopn,fcondbot, &
-                                      einit               )
+                                      einit, e_num)
 
       integer (kind=int_kind), intent(in) :: &
          nilyr , & ! number of ice layers
@@ -126,7 +127,9 @@
       real (kind=dbl_kind), dimension (nslyr), intent(inout) :: &
          zqsn        , & ! snow layer enthalpy (J m-3)
          zTsn            ! internal snow layer temperatures
-
+      
+      real (kind=dbl_kind), intent(out):: &
+         e_num
      ! local variables
 
       integer (kind=int_kind), parameter :: &
@@ -194,20 +197,24 @@
          Iswabs_tmp  , & ! energy to melt through fraction frac of layer
          Sswabs_tmp  , & ! same for snow
          dswabs      , & ! difference in swabs and swabs_tmp
-         frac
+         frac        , &
+         fcondtopn_reduction, &
+         fcondtopn_force, dqmat_sn
 
       logical (kind=log_kind) :: &
-         converged       ! = true when local solution has converged
+         converged, Top_T_was_reset_last_time ! = true when local solution has converged
 
       logical (kind=log_kind) , dimension (nilyr) :: &
-         reduce_kh       ! reduce conductivity when T exceeds Tmlt
+         reduce_kh      ! reduce conductivity when T exceeds Tmlt
 
       character(len=*),parameter :: subname='(temperature_changes)'
 
       !-----------------------------------------------------------------
       ! Initialize
       !-----------------------------------------------------------------
-
+      fcondtopn_reduction = c0
+      e_num = c0
+      Top_T_was_reset_last_time = .false.
       converged  = .false.
       l_snow     = .false.
       l_cold     = .true.
@@ -263,55 +270,56 @@
       !       has already computed fsurf.  (Unless we adjust fsurf here)
       !-----------------------------------------------------------------
 !mclaren: Should there be an if calc_Tsfc statement here then??
+      if (calc_Tsfc) then
+         if (sw_redist) then
 
-      if (sw_redist) then
+         if (solve_zsal) sw_dtemp = p1  ! lower tolerance with dynamic salinity
 
-      if (solve_zsal) sw_dtemp = p1  ! lower tolerance with dynamic salinity
+         do k = 1, nilyr
 
-      do k = 1, nilyr
-
-         Iswabs_tmp = c0 ! all Iswabs is moved into fswsfc
-         if (Tin_init(k) <= Tmlts(k) - sw_dtemp) then
-            if (l_brine) then
-               ci = cp_ice - Lfresh * Tmlts(k) / (Tin_init(k)**2)
-               Iswabs_tmp = min(Iswabs(k), &
-                                sw_frac*(Tmlts(k)-Tin_init(k))*ci/dt_rhoi_hlyr)
-            else
-               ci = cp_ice
-               Iswabs_tmp = min(Iswabs(k), &
-                                sw_frac*(-Tin_init(k))*ci/dt_rhoi_hlyr)
+            Iswabs_tmp = c0 ! all Iswabs is moved into fswsfc
+            if (Tin_init(k) <= Tmlts(k) - sw_dtemp) then
+               if (l_brine) then
+                  ci = cp_ice - Lfresh * Tmlts(k) / (Tin_init(k)**2)
+                  Iswabs_tmp = min(Iswabs(k), &
+                                 sw_frac*(Tmlts(k)-Tin_init(k))*ci/dt_rhoi_hlyr)
+               else
+                  ci = cp_ice
+                  Iswabs_tmp = min(Iswabs(k), &
+                                 sw_frac*(-Tin_init(k))*ci/dt_rhoi_hlyr)
+               endif
             endif
-         endif
-         if (Iswabs_tmp < puny) Iswabs_tmp = c0
+            if (Iswabs_tmp < puny) Iswabs_tmp = c0
 
-         dswabs = min(Iswabs(k) - Iswabs_tmp, fswint)
-
-         fswsfc   = fswsfc + dswabs
-         fswint   = fswint - dswabs
-         Iswabs(k) = Iswabs_tmp
-
-      enddo
-
-      do k = 1, nslyr
-         if (l_snow) then
-
-            Sswabs_tmp = c0
-            if (Tsn_init(k) <= -sw_dtemp) then
-               Sswabs_tmp = min(Sswabs(k), &
-                                -sw_frac*Tsn_init(k)/etas(k))
-            endif
-            if (Sswabs_tmp < puny) Sswabs_tmp = c0
-
-            dswabs = min(Sswabs(k) - Sswabs_tmp, fswint)
+            dswabs = min(Iswabs(k) - Iswabs_tmp, fswint)
 
             fswsfc   = fswsfc + dswabs
             fswint   = fswint - dswabs
-            Sswabs(k) = Sswabs_tmp
+            Iswabs(k) = Iswabs_tmp
+
+         enddo
+
+         do k = 1, nslyr
+            if (l_snow) then
+
+               Sswabs_tmp = c0
+               if (Tsn_init(k) <= -sw_dtemp) then
+                  Sswabs_tmp = min(Sswabs(k), &
+                                 -sw_frac*Tsn_init(k)/etas(k))
+               endif
+               if (Sswabs_tmp < puny) Sswabs_tmp = c0
+
+               dswabs = min(Sswabs(k) - Sswabs_tmp, fswint)
+
+               fswsfc   = fswsfc + dswabs
+               fswint   = fswint - dswabs
+               Sswabs(k) = Sswabs_tmp
+
+            endif
+         enddo
 
          endif
-      enddo
-
-      endif
+      endif ! calc_Tsfc
 
       !-----------------------------------------------------------------
       ! Solve for new temperatures.
@@ -423,7 +431,7 @@
                if (icepack_warnings_aborted(subname)) return
 
             else
-
+               fcondtopn_force = fcondtopn - fcondtopn_reduction
                call get_matrix_elements_know_Tsfc (nilyr, nslyr, &
                                    l_snow,      Tbot,        &
                                    Tin_init,    Tsn_init,    &
@@ -432,7 +440,7 @@
                                    etai,        etas,        &
                                    sbdiag,      diag,        &
                                    spdiag,      rhs,         &
-                                   fcondtopn)
+                                   fcondtopn_force)
                if (icepack_warnings_aborted(subname)) return
 
             endif  ! calc_Tsfc
@@ -554,7 +562,32 @@
                else
                   zTsn(k) = c0
                endif
-               if (l_brine) zTsn(k) = min(zTsn(k), c0)
+               ! if (l_brine) zTsn(k) = min(zTsn(k), c0)
+               if ((l_brine) .and. zTsn(k)>c0) then
+            
+                  ! Alex West: return this energy to the ocean
+                  
+                  dqmat_sn = (zTsn(k)*cp_ice - Lfresh)*rhos - zqsn(k)
+                  
+                  ! Alex West: If this is the second time in succession that Tsn(1) has been
+                  ! reset, tell the solver to reduce the forcing at the top, and
+                  ! pass the difference to the array enum where it will eventually
+                  ! go into the ocean
+                  ! This is done to avoid an 'infinite loop' whereby temp continually evolves
+                  ! to the same point above zero, is reset, ad infinitum
+                  if (l_snow .AND. k == 1) then
+                     if (Top_T_was_reset_last_time) then
+                        fcondtopn_reduction = fcondtopn_reduction + dqmat_sn*hslyr / dt
+                        Top_T_was_reset_last_time = .false.
+                        e_num = e_num + hslyr * dqmat_sn		
+                     else
+                        Top_T_was_reset_last_time = .true.
+                     endif
+                  endif
+                  
+                  zTsn(k) = min(zTsn(k), c0)
+               
+               endif
 
       !-----------------------------------------------------------------
       ! If condition 1 or 2 failed, average new snow layer
@@ -588,6 +621,16 @@
                   dTmat(k) = zTin(k) - Tmlts(k)
                   dqmat(k) = rhoi * dTmat(k) &
                            * (cp_ice - Lfresh * Tmlts(k)/zTin(k)**2)
+
+                  if ((.not. l_snow) .and. (k == 1)) then
+                     if (Top_T_was_reset_last_time) then
+                        fcondtopn_reduction = fcondtopn_reduction + dqmat(k)*hilyr / dt
+                        Top_T_was_reset_last_time = .false.
+                        e_num = e_num + hilyr * dqmat(k)
+                     else
+                        Top_T_was_reset_last_time = .true.
+                     endif
+                  endif
 ! use this for the case that Tmlt changes by an amount dTmlt=Tmltnew-Tmlt(k)
 !                             + rhoi * dTmlt &
 !                             * (cp_ocn - cp_ice + Lfresh/zTin(k))
@@ -679,11 +722,11 @@
             ! Flux extra energy out of the ice
             fcondbot = fcondbot + einex/dt
 
-            ferr = abs( (enew-einit)/dt &
+            ferr = abs( (enew-einit+e_num)/dt &
                  - (fcondtopn - fcondbot + fswint) )
 
             ! factor of 0.9 allows for roundoff errors later
-            if (ferr > 0.9_dbl_kind*ferrmax) then         ! condition (5)
+            if (ferr > 0.9_dbl_kind*ferrmax*0.05_dbl_kind) then         ! condition (5)
 
                converged = .false.
 
@@ -709,76 +752,110 @@
       if (.not.converged) then
          write(warnstr,*) subname, 'Thermo iteration does not converge,'
          call icepack_warnings_add(warnstr)
+         call ESMF_LogWrite(warnstr, ESMF_LOGMSG_INFO)
          write(warnstr,*) subname, 'Ice thickness:',  hilyr*nilyr
          call icepack_warnings_add(warnstr)
+         call ESMF_LogWrite(warnstr, ESMF_LOGMSG_INFO)
          write(warnstr,*) subname, 'Snow thickness:', hslyr*nslyr
          call icepack_warnings_add(warnstr)
+         call ESMF_LogWrite(warnstr, ESMF_LOGMSG_INFO)
          write(warnstr,*) subname, 'dTsf, Tsf_errmax:',dTsf_prev, &
               Tsf_errmax
          call icepack_warnings_add(warnstr)
+         call ESMF_LogWrite(warnstr, ESMF_LOGMSG_INFO)
          write(warnstr,*) subname, 'Tsf:', Tsf
          call icepack_warnings_add(warnstr)
+         call ESMF_LogWrite(warnstr, ESMF_LOGMSG_INFO)
          write(warnstr,*) subname, 'fsurf:', fsurfn
          call icepack_warnings_add(warnstr)
+         call ESMF_LogWrite(warnstr, ESMF_LOGMSG_INFO)
          write(warnstr,*) subname, 'fcondtop, fcondbot, fswint', &
               fcondtopn, fcondbot, fswint
          call icepack_warnings_add(warnstr)
+         call ESMF_LogWrite(warnstr, ESMF_LOGMSG_INFO)
          write(warnstr,*) subname, 'fswsfc', fswsfc
          call icepack_warnings_add(warnstr)
+         call ESMF_LogWrite(warnstr, ESMF_LOGMSG_INFO)
          write(warnstr,*) subname, 'Iswabs',(Iswabs(k),k=1,nilyr)
          call icepack_warnings_add(warnstr)
+         call ESMF_LogWrite(warnstr, ESMF_LOGMSG_INFO)
          write(warnstr,*) subname, 'Flux conservation error =', ferr
          call icepack_warnings_add(warnstr)
+         call ESMF_LogWrite(warnstr, ESMF_LOGMSG_INFO)
          write(warnstr,*) subname, 'Initial snow temperatures:'
          call icepack_warnings_add(warnstr)
+         call ESMF_LogWrite(warnstr, ESMF_LOGMSG_INFO)
          write(warnstr,*) subname, (Tsn_init(k),k=1,nslyr)
          call icepack_warnings_add(warnstr)
+         call ESMF_LogWrite(warnstr, ESMF_LOGMSG_INFO)
          write(warnstr,*) subname, 'Initial ice temperatures:'
          call icepack_warnings_add(warnstr)
+         call ESMF_LogWrite(warnstr, ESMF_LOGMSG_INFO)
          write(warnstr,*) subname, (Tin_init(k),k=1,nilyr)
          call icepack_warnings_add(warnstr)
+         call ESMF_LogWrite(warnstr, ESMF_LOGMSG_INFO)
          write(warnstr,*) subname, 'Matrix ice temperature diff:'
          call icepack_warnings_add(warnstr)
+         call ESMF_LogWrite(warnstr, ESMF_LOGMSG_INFO)
          write(warnstr,*) subname, (dTmat(k),k=1,nilyr)
          call icepack_warnings_add(warnstr)
+         call ESMF_LogWrite(warnstr, ESMF_LOGMSG_INFO)
          write(warnstr,*) subname, 'dqmat*hilyr/dt:'
          call icepack_warnings_add(warnstr)
+         call ESMF_LogWrite(warnstr, ESMF_LOGMSG_INFO)
          write(warnstr,*) subname, (hilyr*dqmat(k)/dt,k=1,nilyr)
          call icepack_warnings_add(warnstr)
+         call ESMF_LogWrite(warnstr, ESMF_LOGMSG_INFO)
          write(warnstr,*) subname, 'Final snow temperatures:'
          call icepack_warnings_add(warnstr)
+         call ESMF_LogWrite(warnstr, ESMF_LOGMSG_INFO)
          write(warnstr,*) subname, (zTsn(k),k=1,nslyr)
          call icepack_warnings_add(warnstr)
+         call ESMF_LogWrite(warnstr, ESMF_LOGMSG_INFO)
          write(warnstr,*) subname, 'Matrix ice temperature diff:'
          call icepack_warnings_add(warnstr)
+         call ESMF_LogWrite(warnstr, ESMF_LOGMSG_INFO)
          write(warnstr,*) subname, (dTmat(k),k=1,nilyr)
          call icepack_warnings_add(warnstr)
+         call ESMF_LogWrite(warnstr, ESMF_LOGMSG_INFO)
          write(warnstr,*) subname, 'dqmat*hilyr/dt:'
          call icepack_warnings_add(warnstr)
+         call ESMF_LogWrite(warnstr, ESMF_LOGMSG_INFO)
          write(warnstr,*) subname, (hilyr*dqmat(k)/dt,k=1,nilyr)
          call icepack_warnings_add(warnstr)
+         call ESMF_LogWrite(warnstr, ESMF_LOGMSG_INFO)
          write(warnstr,*) subname, 'Final ice temperatures:'
          call icepack_warnings_add(warnstr)
+         call ESMF_LogWrite(warnstr, ESMF_LOGMSG_INFO)
          write(warnstr,*) subname, (zTin(k),k=1,nilyr)
          call icepack_warnings_add(warnstr)
          write(warnstr,*) subname, 'Ice melting temperatures:'
          call icepack_warnings_add(warnstr)
+         call ESMF_LogWrite(warnstr, ESMF_LOGMSG_INFO)
          write(warnstr,*) subname, (Tmlts(k),k=1,nilyr)
          call icepack_warnings_add(warnstr)
+         call ESMF_LogWrite(warnstr, ESMF_LOGMSG_INFO)
          write(warnstr,*) subname, 'Ice bottom temperature:', Tbot
          call icepack_warnings_add(warnstr)
+         call ESMF_LogWrite(warnstr, ESMF_LOGMSG_INFO)
          write(warnstr,*) subname, 'dT initial:'
          call icepack_warnings_add(warnstr)
+         call ESMF_LogWrite(warnstr, ESMF_LOGMSG_INFO)
          write(warnstr,*) subname, (Tmlts(k)-Tin_init(k),k=1,nilyr)
          call icepack_warnings_add(warnstr)
+         call ESMF_LogWrite(warnstr, ESMF_LOGMSG_INFO)
          write(warnstr,*) subname, 'dT final:'
          call icepack_warnings_add(warnstr)
+         call ESMF_LogWrite(warnstr, ESMF_LOGMSG_INFO)
          write(warnstr,*) subname, (Tmlts(k)-zTin(k),k=1,nilyr)
          call icepack_warnings_add(warnstr)
+         call ESMF_LogWrite(warnstr, ESMF_LOGMSG_INFO)
          write(warnstr,*) subname, 'zSin'
          call icepack_warnings_add(warnstr)
+         call ESMF_LogWrite(warnstr, ESMF_LOGMSG_INFO)
          write(warnstr,*) subname, (zSin(k),k=1,nilyr)
          call icepack_warnings_add(warnstr)
+         call ESMF_LogWrite(warnstr, ESMF_LOGMSG_INFO)
          call icepack_warnings_setabort(.true.,__FILE__,__LINE__)
          call icepack_warnings_add(subname//" temperature_changes: Thermo iteration does not converge" )
          return
