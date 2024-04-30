@@ -2004,7 +2004,7 @@
       ! end if
       
       if (ferr > 10.0_dbl_kind*ferrmax) then
-         
+         call ESMF_LogWrite("\n\n----------------------------", ESMF_LOGMSG_INFO)
          write(warnstr,*) subname, 'Thermo energy conservation error'
          call ESMF_LogWrite(warnstr, ESMF_LOGMSG_INFO)
          write(warnstr,*) subname, 'Flux error (W/m^2) =', ferr
@@ -2023,6 +2023,10 @@
          call ESMF_LogWrite(warnstr, ESMF_LOGMSG_INFO)
          write(warnstr,*) subname, 'Input energy =', einp
          call ESMF_LogWrite(warnstr, ESMF_LOGMSG_INFO)
+         write(warnstr,*) subname, 'fcondtopn =', fcondtopn
+         call ESMF_LogWrite(warnstr, ESMF_LOGMSG_INFO)
+         write(warnstr,*) subname, 'Intermediate energy =', einter
+         call ESMF_LogWrite(warnstr, ESMF_LOGMSG_INFO)
          write(warnstr,*) subname, 'Numerical energy =', e_num
          call ESMF_LogWrite(warnstr, ESMF_LOGMSG_INFO)
          write(warnstr,*) subname, 'fcondtopn_extra energy =', fcondtopn_extra
@@ -2031,6 +2035,7 @@
          call ESMF_LogWrite(warnstr, ESMF_LOGMSG_INFO)
          write(warnstr,*) subname, fbot,fcondbotn
          call ESMF_LogWrite(warnstr, ESMF_LOGMSG_INFO)
+         call ESMF_LogWrite("----------------------------\n\n", ESMF_LOGMSG_INFO)
       end if
 
       ! if (ferr > 1.1_dbl_kind*ferrmax) then
