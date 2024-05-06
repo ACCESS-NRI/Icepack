@@ -1332,6 +1332,7 @@
       econ = min(wk1, c0)     ! energy for condensation, < 0
 
       wk1 = (fsurfn - fcondtopn) * dt
+      ! wk1 = fsurfn * dt
       etop_mlt = max(wk1, c0)           ! etop_mlt > 0
 
       wk1 = (fcondbotn - fbot + fcondtopn_extra) * dt
@@ -2901,7 +2902,6 @@
       !-----------------------------------------------------------------
       ! Vertical thermodynamics: Heat conduction, growth and melting.
       !-----------------------------------------------------------------
-
             if (.not.(calc_Tsfc)) then
 
                ! If not calculating surface temperature and fluxes, set
