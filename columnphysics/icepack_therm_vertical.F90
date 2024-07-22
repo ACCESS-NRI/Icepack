@@ -285,7 +285,7 @@
          fadvocn, saltvol, dfsalt ! advective heat flux to ocean
 
       real (kind=dbl_kind) :: &
-         fcondtopn_solve, fcondtopn_extra, e_num
+         fcondtopn_solve, fcondtopn_extra, e_num, fsurfn_solve
 
       character(len=*),parameter :: subname='(thermo_vertical)'
 
@@ -387,6 +387,7 @@
          else ! ktherm
             fcondtopn_solve = cap_conductive_flux(nilyr, nslyr, fcondtopn, hin, zTsn, zTin, hslyr)
             fcondtopn_extra = fcondtopn - fcondtopn_solve
+            fsurfn_solve = fsurfn - fcondtopn_extra
 
             ! if (calc_Tsfc) then
             !    fcondtopn = fcondtopn_solve
@@ -405,7 +406,7 @@
                                      zSin,                 &
                                      Tsf,       Tbot,      &
                                      fsensn,    flatn,     &
-                                     flwoutn,   fsurfn,    &
+                                     flwoutn,   fsurfn_solve,    &
                                      fcondtopn_solve, fcondbotn,  &
                                      einit, e_num)
             if (icepack_warnings_aborted(subname)) return
