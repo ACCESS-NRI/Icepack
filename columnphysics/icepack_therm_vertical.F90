@@ -2037,6 +2037,7 @@
          write(warnstr,*) subname, fbot,fcondbotn
          call ESMF_LogWrite(warnstr, ESMF_LOGMSG_INFO)
          call ESMF_LogWrite("----------------------------\n\n", ESMF_LOGMSG_INFO)
+         call icepack_warnings_setabort(.true.,__FILE__,__LINE__)
       end if
 
       ! if (ferr > 1.1_dbl_kind*ferrmax) then

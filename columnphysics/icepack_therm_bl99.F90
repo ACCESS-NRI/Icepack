@@ -753,109 +753,145 @@
          write(warnstr,*) subname, 'Thermo iteration does not converge,'
          call icepack_warnings_add(warnstr)
          call ESMF_LogWrite(warnstr, ESMF_LOGMSG_INFO)
+
          write(warnstr,*) subname, 'Ice thickness:',  hilyr*nilyr
          call icepack_warnings_add(warnstr)
          call ESMF_LogWrite(warnstr, ESMF_LOGMSG_INFO)
+
          write(warnstr,*) subname, 'Snow thickness:', hslyr*nslyr
          call icepack_warnings_add(warnstr)
          call ESMF_LogWrite(warnstr, ESMF_LOGMSG_INFO)
+
          write(warnstr,*) subname, 'dTsf, Tsf_errmax:',dTsf_prev, &
               Tsf_errmax
          call icepack_warnings_add(warnstr)
          call ESMF_LogWrite(warnstr, ESMF_LOGMSG_INFO)
+
          write(warnstr,*) subname, 'Tsf:', Tsf
          call icepack_warnings_add(warnstr)
          call ESMF_LogWrite(warnstr, ESMF_LOGMSG_INFO)
+
          write(warnstr,*) subname, 'fsurf:', fsurfn
          call icepack_warnings_add(warnstr)
          call ESMF_LogWrite(warnstr, ESMF_LOGMSG_INFO)
+
          write(warnstr,*) subname, 'fcondtop, fcondbot, fswint', &
               fcondtopn, fcondbot, fswint
          call icepack_warnings_add(warnstr)
          call ESMF_LogWrite(warnstr, ESMF_LOGMSG_INFO)
+
          write(warnstr,*) subname, 'fswsfc', fswsfc
          call icepack_warnings_add(warnstr)
          call ESMF_LogWrite(warnstr, ESMF_LOGMSG_INFO)
+
          write(warnstr,*) subname, 'Iswabs',(Iswabs(k),k=1,nilyr)
          call icepack_warnings_add(warnstr)
          call ESMF_LogWrite(warnstr, ESMF_LOGMSG_INFO)
+
          write(warnstr,*) subname, 'Flux conservation error =', ferr
          call icepack_warnings_add(warnstr)
          call ESMF_LogWrite(warnstr, ESMF_LOGMSG_INFO)
+
          write(warnstr,*) subname, 'Initial snow temperatures:'
          call icepack_warnings_add(warnstr)
          call ESMF_LogWrite(warnstr, ESMF_LOGMSG_INFO)
+
          write(warnstr,*) subname, (Tsn_init(k),k=1,nslyr)
          call icepack_warnings_add(warnstr)
          call ESMF_LogWrite(warnstr, ESMF_LOGMSG_INFO)
+
          write(warnstr,*) subname, 'Initial ice temperatures:'
          call icepack_warnings_add(warnstr)
          call ESMF_LogWrite(warnstr, ESMF_LOGMSG_INFO)
+
          write(warnstr,*) subname, (Tin_init(k),k=1,nilyr)
          call icepack_warnings_add(warnstr)
          call ESMF_LogWrite(warnstr, ESMF_LOGMSG_INFO)
+
          write(warnstr,*) subname, 'Matrix ice temperature diff:'
          call icepack_warnings_add(warnstr)
          call ESMF_LogWrite(warnstr, ESMF_LOGMSG_INFO)
+
          write(warnstr,*) subname, (dTmat(k),k=1,nilyr)
          call icepack_warnings_add(warnstr)
          call ESMF_LogWrite(warnstr, ESMF_LOGMSG_INFO)
+
          write(warnstr,*) subname, 'dqmat*hilyr/dt:'
          call icepack_warnings_add(warnstr)
          call ESMF_LogWrite(warnstr, ESMF_LOGMSG_INFO)
+
          write(warnstr,*) subname, (hilyr*dqmat(k)/dt,k=1,nilyr)
          call icepack_warnings_add(warnstr)
          call ESMF_LogWrite(warnstr, ESMF_LOGMSG_INFO)
+
          write(warnstr,*) subname, 'Final snow temperatures:'
          call icepack_warnings_add(warnstr)
          call ESMF_LogWrite(warnstr, ESMF_LOGMSG_INFO)
+
          write(warnstr,*) subname, (zTsn(k),k=1,nslyr)
          call icepack_warnings_add(warnstr)
          call ESMF_LogWrite(warnstr, ESMF_LOGMSG_INFO)
+
          write(warnstr,*) subname, 'Matrix ice temperature diff:'
          call icepack_warnings_add(warnstr)
          call ESMF_LogWrite(warnstr, ESMF_LOGMSG_INFO)
+
          write(warnstr,*) subname, (dTmat(k),k=1,nilyr)
          call icepack_warnings_add(warnstr)
          call ESMF_LogWrite(warnstr, ESMF_LOGMSG_INFO)
+
          write(warnstr,*) subname, 'dqmat*hilyr/dt:'
          call icepack_warnings_add(warnstr)
          call ESMF_LogWrite(warnstr, ESMF_LOGMSG_INFO)
+
          write(warnstr,*) subname, (hilyr*dqmat(k)/dt,k=1,nilyr)
          call icepack_warnings_add(warnstr)
          call ESMF_LogWrite(warnstr, ESMF_LOGMSG_INFO)
+
          write(warnstr,*) subname, 'Final ice temperatures:'
          call icepack_warnings_add(warnstr)
          call ESMF_LogWrite(warnstr, ESMF_LOGMSG_INFO)
+
          write(warnstr,*) subname, (zTin(k),k=1,nilyr)
          call icepack_warnings_add(warnstr)
+         call ESMF_LogWrite(warnstr, ESMF_LOGMSG_INFO)
+         
          write(warnstr,*) subname, 'Ice melting temperatures:'
          call icepack_warnings_add(warnstr)
          call ESMF_LogWrite(warnstr, ESMF_LOGMSG_INFO)
+
          write(warnstr,*) subname, (Tmlts(k),k=1,nilyr)
          call icepack_warnings_add(warnstr)
          call ESMF_LogWrite(warnstr, ESMF_LOGMSG_INFO)
+
          write(warnstr,*) subname, 'Ice bottom temperature:', Tbot
          call icepack_warnings_add(warnstr)
          call ESMF_LogWrite(warnstr, ESMF_LOGMSG_INFO)
+
          write(warnstr,*) subname, 'dT initial:'
          call icepack_warnings_add(warnstr)
          call ESMF_LogWrite(warnstr, ESMF_LOGMSG_INFO)
+
          write(warnstr,*) subname, (Tmlts(k)-Tin_init(k),k=1,nilyr)
          call icepack_warnings_add(warnstr)
          call ESMF_LogWrite(warnstr, ESMF_LOGMSG_INFO)
+
          write(warnstr,*) subname, 'dT final:'
          call icepack_warnings_add(warnstr)
          call ESMF_LogWrite(warnstr, ESMF_LOGMSG_INFO)
+
          write(warnstr,*) subname, (Tmlts(k)-zTin(k),k=1,nilyr)
          call icepack_warnings_add(warnstr)
          call ESMF_LogWrite(warnstr, ESMF_LOGMSG_INFO)
+
          write(warnstr,*) subname, 'zSin'
          call icepack_warnings_add(warnstr)
          call ESMF_LogWrite(warnstr, ESMF_LOGMSG_INFO)
+
          write(warnstr,*) subname, (zSin(k),k=1,nilyr)
          call icepack_warnings_add(warnstr)
          call ESMF_LogWrite(warnstr, ESMF_LOGMSG_INFO)
+
          call icepack_warnings_setabort(.true.,__FILE__,__LINE__)
          call icepack_warnings_add(subname//" temperature_changes: Thermo iteration does not converge" )
          return
