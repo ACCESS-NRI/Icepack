@@ -84,7 +84,7 @@
          
          real (kind=dbl_kind)   :: fcondtopn_solve
 
-         real (kind=dbl_kind), parameter :: ratio_Wm2_m = 800.0, cold_temp_flag = c0 - 60.0
+         real (kind=dbl_kind), parameter :: ratio_Wm2_m = 1000.0, cold_temp_flag = c0 - 60.0
    
          ! AEW: New variables for cold-ice flux capping
          real (kind=dbl_kind) :: top_layer_temp,     &

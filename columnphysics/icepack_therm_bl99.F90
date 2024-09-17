@@ -892,6 +892,10 @@
          call icepack_warnings_add(warnstr)
          call ESMF_LogWrite(warnstr, ESMF_LOGMSG_INFO)
 
+         write(warnstr,*) subname, 'enum:', e_num
+         call icepack_warnings_add(warnstr)
+         call ESMF_LogWrite(warnstr, ESMF_LOGMSG_INFO)
+
          call icepack_warnings_setabort(.true.,__FILE__,__LINE__)
          call icepack_warnings_add(subname//" temperature_changes: Thermo iteration does not converge" )
          return
