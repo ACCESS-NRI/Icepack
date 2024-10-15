@@ -1113,7 +1113,7 @@
             call icepack_warnings_add(subname//' Zap ice: negative ice area')
             return
          elseif (abs(aicen(n)) /= c0 .and. &
-                 abs(aicen(n)) <= 1.0e-2_dbl_kind) then
+                 abs(aicen(n)) <= puny) then
 
       !-----------------------------------------------------------------
       ! Account for tracers important for conservation
