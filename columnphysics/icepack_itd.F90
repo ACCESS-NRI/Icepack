@@ -1071,6 +1071,7 @@
          first_ice    ! For bgc tracers.  Set to true if zapping ice
 
       ! local variables
+      real (kind=dbl_kind) :: aicenmin = 1.0e-5 ! Cutoff concentration for zapping
 
       integer (kind=int_kind) :: &
          n, k, it, & !counting indices
@@ -1098,7 +1099,7 @@
             call icepack_warnings_add(subname//' Zap ice: negative ice area')
             return
          elseif (abs(aicen(n)) /= c0 .and. &
-                 abs(aicen(n)) <= puny) then
+                 abs(aicen(n)) <= aicenmin) then
 
       !-----------------------------------------------------------------
       ! Account for tracers important for conservation
