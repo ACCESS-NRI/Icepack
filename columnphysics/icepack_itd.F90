@@ -1086,6 +1086,7 @@
          first_ice    ! For bgc tracers.  Set to true if zapping ice
 
       ! local variables
+      real (kind=dbl_kind) :: aicenmin = 1.0e-5 ! Cutoff concentration for zapping
 
       integer (kind=int_kind) :: &
          n, k, it, & !counting indices
@@ -1113,7 +1114,7 @@
             call icepack_warnings_add(subname//' Zap ice: negative ice area')
             return
          elseif (abs(aicen(n)) /= c0 .and. &
-                 abs(aicen(n)) <= puny) then
+                 abs(aicen(n)) <= aicenmin) then
 
       !-----------------------------------------------------------------
       ! Account for tracers important for conservation
@@ -1657,7 +1658,7 @@
       b2 = c3         ! thickness for which participation function is small (m)
       b3 = max(rncat*(rncat-1), c2*b2/b1)
 
-      hi_min = p01    ! minimum ice thickness allowed (m) for thermo
+      hi_min = p2    ! minimum ice thickness allowed (m) for thermo
                       ! note hi_min is reset to 0.1 for kitd=0, below
 
       !-----------------------------------------------------------------
@@ -1714,7 +1715,6 @@
 #ifndef CESMCOUPLED
             hi_min = p1    ! minimum ice thickness allowed (m) for thermo
 #endif
-            hi_min =  p2
             cc1 = max(1.1_dbl_kind/rncat,hi_min)
             cc2 = c25*cc1
             cc3 = 2.25_dbl_kind
