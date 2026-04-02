@@ -30,7 +30,7 @@
 
       use icepack_kinds
       use icepack_parameters, only: p01, p5, c0, c1, c2, c3, c4, c10
-      use icepack_parameters, only: bignum, puny, gravit, pi
+      use icepack_parameters, only: bignum, puny, gravit, pi, rhow, rhoi
       use icepack_parameters, only: wave_spec_type, wave_height_type
       use icepack_tracers, only: nt_fsd, ncat, nfsd
       use icepack_warnings, only: warnstr, icepack_warnings_add
@@ -282,7 +282,7 @@
                            wavefreq, dwavefreq, &
                            hbar, wave_spectrum, fracture_hist)
          else
-            call wave_frac(nfreq, wave_spec_type, &
+            call wave_frac(nfreq, &
                            wavefreq, dwavefreq, &
                            hbar, wave_spectrum, fracture_hist)
          endif
