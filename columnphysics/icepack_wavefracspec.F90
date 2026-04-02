@@ -244,7 +244,12 @@
 
       character(len=*),parameter :: &
          subname='(icepack_step_wavefracture)'
+      
+      character(len=16) :: wave_frac_type
+         
 
+      !------------------------------------
+      wave_frac_type = 'lognormal'
       !------------------------------------
 
       ! initialize
@@ -265,15 +270,22 @@
          endif
 
       ! do not try to fracture for minimal ice concentration or zero wave spectrum
-!      if ((aice > p01).and.(MAXVAL(wave_spectrum(:)) > puny)) then
-      if ((aice > p01).and.(local_sig_ht>0.1_dbl_kind)) then
+      ! if ((aice > p01).and.(MAXVAL(wave_spectrum(:)) > puny)) then
+      if ((aice > p01).and.(local_sig_ht > 0.001)) then
+      ! if ((aice > p01).and.(local_sig_ht>0.1_dbl_kind)) then
 
          hbar = vice / aice
 
          ! calculate fracture histogram
-         call wave_frac(nfreq,               &
-                        wavefreq, dwavefreq, &
-                        hbar, wave_spectrum, fracture_hist)
+         if (trim(wave_frac_type) .eq. 'lognormal') then
+            call wave_frac_lognormal(nfreq, wave_spec_type, &
+                           wavefreq, dwavefreq, &
+                           hbar, wave_spectrum, fracture_hist)
+         else
+            call wave_frac(nfreq, wave_spec_type, &
+                           wavefreq, dwavefreq, &
+                           hbar, wave_spectrum, fracture_hist)
+         endif
 
          if (icepack_warnings_aborted(subname)) return
 
@@ -708,6 +720,270 @@
       end if ! n_above
 
       end subroutine get_fraclengths
+
+!=======================================================================
+!
+!  Calculates functions to describe the change in the FSD when waves
+!  fracture ice, given a wave spectrum.
+!
+!  1. Calculate the strain criterion of Williams et al. (2013ab)
+!  2. If strain > critical strain then commence breakup
+!  3. Rather than computing fracture lengths like Horvat and Tziperman (2015), 
+!     we use a log-normal distribution for the fracture histgram
+!  
+! Note: The log-normal parametersation was fit from offline simulations of
+!       the Horvat and Tziperman (2015) breakup model but with the 
+!       ice-covered dispersion relation (rather than the open water).
+!       Scale and shape parameters of the distribution are functions of peak wavelength
+!       and peak period, respectively.
+!
+!  References:
+!
+!    Horvat, C. and Tziperman, E. (2015)
+!    A prognostic model of the sea-ice floe size and thickness distribution, 
+!    The Cryosphere, 9, 2119–2134, https://doi.org/10.5194/tc-9-2119-2015
+!
+!    Williams, T., Bennetts, L., Squire, S., Dumont, D., Bertino, L., (2013a)
+!    Wave–ice interactions in the marginal ice zone. Part 1: Theoretical foundations,
+!    Ocean Modelling, 71, pp. 81–91, https://doi.org/10.1016/j.ocemod.2013.05.010
+
+!    Williams, T., Bennetts, L., Squire, S., Dumont, D., Bertino, L., (2013b)
+!    Wave–ice interactions in the marginal ice zone. Part 2: Numerical implementation 
+!    and sensitivity studies along 1D transects of the ocean surface,
+!    Ocean Modelling, 71, pp. 92–101, https://doi.org/10.1016/j.ocemod.2013.05.011
+!
+!  authors: 2026 Noah Day, UniMelb
+
+      subroutine wave_frac_lognormal(nfreq, wave_spec_type, &
+                           wavefreq, dwavefreq, &
+                           hbar, spec_efreq, frac_local)
+
+      integer (kind=int_kind), intent(in) :: &
+         nfreq         ! number of wave frequency categories
+
+      character (len=char_len), intent(in) :: &
+        wave_spec_type ! type of wave spectrum forcing
+
+      real (kind=dbl_kind),  intent(in) :: &
+         hbar          ! mean ice thickness (m)
+
+      real (kind=dbl_kind), dimension (:), intent(in) :: &
+         wavefreq,   & ! wave frequencies (s^-1)
+         dwavefreq,  & ! wave frequency bin widths (s^-1)
+         spec_efreq    ! wave spectrum (m^2 s)
+
+      real (kind=dbl_kind), dimension (nfsd), intent(out) :: &
+         frac_local    ! fracturing histogram
+
+      ! local variables
+
+      integer (kind=int_kind) :: j, k, iter, loop_max_iter
+
+      logical (kind=log_kind):: &
+         debug_lognormal
+
+      real (kind=dbl_kind) ::     &
+         characteristic_diameter, & ! Characteristic floe diameter
+         strain_variance,         & ! Variance of strain field
+         prob_sig_strain,         & ! Probability of strain exceeding breaking strain
+         k_wtr,                   & ! Wavenumber in water (1/m)
+         T_peak,                  & ! Peak period [s]
+         lam_peak,                & ! Peak wavelength [m]
+         flexural_ridgity,        & ! Flexural ridgity term of dispersion relation
+         mass_loading,            & ! Gravity term of dispersion relation
+         scale_ln,                & ! Scale parameter for log-normal distribution
+         sigma_ln,                & ! Spread parameter for log-normal distribution 
+         loc_ln                     ! Location parameter for log-normal distribution 
+
+      real (kind=dbl_kind), parameter :: &
+         critical_strain = 4.99e-5,   & ! critical strain threshold
+         critical_probability = 0.37, & ! Breaking probability threshold (Williams et al., 2013b)
+         youngs_modulus = 5.5e9,      & ! Young's modulus (Williams et al., 2013b)
+         poisson_ratio = 0.3,         & ! Poisson's ratio (Williams et al., 2013b)
+         tolerance_ice = 0.1,         & ! Ice tolerance level for calculating the dispersion relation
+         scale_ln_coeff = 0.43324,    & ! Regression slope for scale parameter
+         scale_ln_int = 3.67877,      & ! Regression intercept for scale parameter
+         shape_ln_coeff = 0.00558,    & ! Regression slope for shape parameter
+         shape_ln_coeff = 0.08852,    & ! Regression intercept for shape parameter
+
+                                        
+
+      real (kind=dbl_kind), dimension(nfreq) :: &
+         lam_ice,                   & ! wavelengths (m)
+         k_ice,                    & ! wavenumber in ice (1/m)
+         E_ice                       ! converts wave energy to strain
+
+      real (kind=dbl_kind), dimension(nx) :: &
+         fraclengths
+
+      real (kind=dbl_kind), dimension(nfsd) :: &
+         nfsd_tmp,                  & ! PMF of number distribution
+         kernel,                    & ! intergral kernel for redistribution
+         frachistogram                ! histogram
+
+      character(len=*),parameter :: &
+         subname='(wave_frac_lognormal)'
+
+
+      debug_lognormal = .false.
+
+
+      ! Terms of the dispersion relation
+      mass_loading     = rhoi * hbar / rhow
+      flexural_ridgity = youngs_modulus * (hbar**3) / (12.0d0 * rhow * gravit * (1.0d0 - poisson_ratio**2))
+
+      do j = 1, nfreq
+         ! Open-water dispersion relation
+         k_wtr = (c2*pi * wavefreq (j))**2/gravit
+
+         ! Find the roots of the dispersion relation
+         ! Newton-Raphson root finding for tolerance 1e-4 and max 20 iterations
+         k_ice(j) = newton_root(k_wtr, 1.0d-4, 20)
+         lam_ice (j) = c2*pi / k_ice(j) ! Wavelength in ice
+
+         ! Converts wave amplitudes to ice wave amplitudes
+         ! Assumes full tranmission (eq. 7 from Williams et al., 2013b)
+         E_ice (j) = (hbar/c2) * k_ice (j) **2 
+      end do
+
+      ! Variance of strain field (eq. 9 of Williamset al., 2013b)
+      strain_variance = SQRT( SUM( E_ice(:)**2 * spec_efreq(:)*dwavefreq(:) ) )
+      
+      ! Probability of strain exceeding breaking strain (eq. 10 of Williamset al., 2013b)
+      prob_sig_strain = EXP( -critical_strain / (c2*strain_variance) )
+
+      ! Initialise
+      frac_local(:) = c0
+
+      
+      T_peak = 1/wavefreq(MAXLOC(spec_efreq, DIM=1))
+      lam_peak = lam_ice(MAXLOC(spec_efreq, DIM=1))
+      
+      if (prob_sig_strain > critical_probability) then
+         ! Linear fits of the lognormal parameters
+         loc_ln = c0 
+         scale_ln = scale_ln_coeff * lam_peak + scale_ln_int
+         sigma_ln = shape_ln_coeff * T_peak + shape_ln_int
+
+         do k = 1, nfsd
+            ! Number PDF
+            nfsd_tmp(k) = c1/ ((floe_rad_c(k)-loc_ln) * sigma_ln * sqrt(c2 * pi)) * &
+               EXP( - ( LOG((floe_rad_c(k)-loc_ln)/scale_ln)**2 ) / (c2 * sigma_ln**2) ) 
+             
+            ! Number PMF = PDF * delta r (nfsd_tmp = afsd_tmp/floe_area_c from welding code)
+            nfsd_tmp(j) = nfsd_tmp(k) * floe_binwidth(k)
+         enddo
+
+         ! normalize
+         if (SUM(nfsd_tmp) /= c0) nfsd_tmp(:) = nfsd_tmp(:) / SUM(nfsd_tmp(:))
+
+         
+         ! Compute the integral kernel
+         do k = 1, nfsd
+            frac_local(k) = floe_rad_c(k) * nfsd_tmp(k)
+         end do
+
+         ! ... and normalize
+         if (SUM(frac_local) /= c0) frac_local(:) = frac_local(:) / SUM(frac_local(:))
+         
+         ! debug
+         if (debug_lognormal) then
+            print *, 'DEBUG: wave_frac_lognormal '
+            print *, 'prob_sig_strain = ', prob_sig_strain
+            print *, 'critical_probability = ', critical_probability
+            print *, 'wave_sig_ht = ', c2*SQRT(SUM(spec_efreq(:)*dwavefreq(:)))
+            print *, 'hbar = ', hbar
+            print *, 'lambda_p = ', lam_peak
+            print *, 'T_peak = ', T_peak
+            print *, 'scale_ln = ', scale_ln
+            print *, 'sigma_ln = ', sigma_ln
+            print *, 'characteristic_diameter = ', characteristic_diameter
+            print *, 'frac_local = ', frac_local
+            
+            write(warnstr,*) subname,'DEBUG: wave_frac_lognormal'
+            write(warnstr,*) '   prob_sig_strain = ', prob_sig_strain
+            write(warnstr,*) '   critical_probability = ', critical_probability
+            write(warnstr,*) '   wave_sig_ht = ', c2*SQRT(SUM(spec_efreq(:)*dwavefreq(:)))
+            write(warnstr,*) '   hbar = ', hbar
+            call icepack_warnings_add(warnstr)
+         endif
+
+      endif
+
+      !-------------------------------------------------------------
+      ! Internal functions
+      contains
+         !-------------------------------------------------------------
+         !  Ice-covered dispersion relation (infinite depth)
+         !
+         !  The dispersion relation consistents of a flexural and intertial terms
+         !  A dissipation term (such as Robinson and Palmer, 1990) is neglected as it is 
+         !  assumed that the incoming wave field has already experienced attenuation 
+         !  from the ice.
+         !
+         !  References:
+         !
+         !   Fox, C., & Squire, V. A. (1994). 
+         !   On the oblique reflexion and transmission of ocean waves from shore fast sea ice. 
+         !   Philosophical Transactions of the Royal Society London A, 347, 185–218. https://doi.org/10.1098/rsta.1994.0044
+         !
+         !  authors: 2016 Luke Bennetts, University of Adelaide
+         !           2026 Noah Day, University of Melbourne
+
+         function fn_DispRel_ice_inf(dum_k) result(fval)
+            real(kind=8), intent(in) :: dum_k
+            real(kind=8) :: fval
+
+            ! Uses the local variables from the parent scope
+            fval = (1d0 - mass_loading*k_wtr + flexural_ridgity*dum_k**4d0) * dum_k - k_wtr
+         end function fn_DispRel_ice_inf
+
+         function fn_df_DispRel_ice_inf(dum_k) result(dfval)
+            real(kind=8), intent(in) :: dum_k
+            real(kind=8) :: dfval
+
+            dfval = (1.0d0 - mass_loading*k_wtr) + 5.0d0 * flexural_ridgity * k**4
+         end function fn_df_DispRel_ice_inf
+         !-------------------------------------------------------------
+         !  Newton-Raphson root finder for the dispersion relation
+         !
+         function newton_root(x0, tol, maxiter) result(root)
+            implicit none
+            real(kind=dbl_kind), intent(in) :: x0
+            real(kind=dbl_kind), intent(in) :: tol
+            integer, intent(in) :: maxiter
+
+            real(kind=dbl_kind) :: root, x, x_new, fx, dfx
+            integer :: iter
+
+            x = x0
+
+            do iter = 1, maxiter
+               fx = fn_DispRel_ice_inf(x)
+               dfx = fn_df_DispRel_ice_inf(x)
+
+               if (abs(dfx) < puny) then
+                     print *, 'WARNING: derivative too small'
+                     exit
+               end if
+
+               x_new = x - fx / dfx
+
+               if (abs(x_new - x) < tol) then
+                     root = x_new
+                     return
+               end if
+
+               x = x_new
+            end do
+
+            print *, 'WARNING: Newton did not converge'
+            root = x
+         end function newton_root
+
+
+      end subroutine wave_frac_lognormal
+
 
 !=======================================================================
 
