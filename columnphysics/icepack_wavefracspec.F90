@@ -791,6 +791,8 @@
          lam_peak,                & ! Peak wavelength [m]
          flexural_ridgity,        & ! Flexural ridgity term of dispersion relation
          mass_loading,            & ! Gravity term of dispersion relation
+         f_disp,                  & ! Dispersion relation function
+         df_disp,                 & ! Derivative of dispersion relation function
          scale_ln,                & ! Scale parameter for log-normal distribution
          sigma_ln,                & ! Spread parameter for log-normal distribution 
          loc_ln                     ! Location parameter for log-normal distribution 
@@ -804,7 +806,7 @@
          scale_ln_coeff = 0.43324,    & ! Regression slope for scale parameter
          scale_ln_int = 3.67877,      & ! Regression intercept for scale parameter
          shape_ln_coeff = 0.00558,    & ! Regression slope for shape parameter
-         shape_ln_coeff = 0.08852,    & ! Regression intercept for shape parameter
+         shape_ln_int = 0.08852       ! Regression intercept for shape parameter
 
                                         
 
