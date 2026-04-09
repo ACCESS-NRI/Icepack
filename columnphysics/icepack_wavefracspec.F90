@@ -786,11 +786,15 @@
          characteristic_diameter, & ! Characteristic floe diameter
          strain_variance,         & ! Variance of strain field
          prob_sig_strain,         & ! Probability of strain exceeding breaking strain
+         omega,                   & ! Angular frequency (rad/s)
          k_wtr,                   & ! Wavenumber in water (1/m)
          T_peak,                  & ! Peak period [s]
          lam_peak,                & ! Peak wavelength [m]
          flexural_ridgity,        & ! Flexural ridgity term of dispersion relation
          mass_loading,            & ! Gravity term of dispersion relation
+         L,                       & ! Length scale for non-dimensionalising dispersion relation
+         del,                     & ! Non-dimensional parameter for dispersion relation
+         k_dimless,               & ! Non-dimensional wavenumber for dispersion relation
          f_disp,                  & ! Dispersion relation function
          df_disp,                 & ! Derivative of dispersion relation function
          scale_ln,                & ! Scale parameter for log-normal distribution
@@ -835,12 +839,16 @@
       flexural_ridgity = youngs_modulus * (hbar**3) / (12.0d0 * rhow * gravit * (1.0d0 - poisson_ratio**2))
 
       do j = 1, nfreq
+         omega = c2*pi * wavefreq(j)
          ! Open-water dispersion relation
          k_wtr = (c2*pi * wavefreq (j))**2/gravit
 
          ! Find the roots of the dispersion relation
-         ! Newton-Raphson root finding for tolerance 1e-4 and max 20 iterations
-         k_ice(j) = newton_root(k_wtr, 1.0d-4, 20)
+         L = sqrt((flexural_ridgity/rhow) / omega**2)
+         del = gravit / (L * omega**2) - (rhoi*hbar / rhow) / L
+         ! Newton-Raphson root finding for tolerance 1e-6 and max 50 iterations
+         k_dimless = newton_root_dimless(k_wtr*L, del, 1.0d-6, 50)
+         k_ice(j) = k_dimless / L
          lam_ice (j) = c2*pi / k_ice(j) ! Wavelength in ice
 
          ! Converts wave amplitudes to ice wave amplitudes
@@ -937,51 +945,50 @@
             real(kind=8) :: fval
 
             ! Uses the local variables from the parent scope
-            fval = (1d0 - mass_loading*k_wtr + flexural_ridgity*dum_k**4d0) * dum_k - k_wtr
+            fval = dum_k**5 + del*dum_k - 1d0
          end function fn_DispRel_ice_inf
 
          function fn_df_DispRel_ice_inf(dum_k) result(dfval)
             real(kind=8), intent(in) :: dum_k
             real(kind=8) :: dfval
 
-            dfval = (1.0d0 - mass_loading*k_wtr) + 5.0d0 * flexural_ridgity * k**4
+            dfval = 5d0*dum_k**4 + del
          end function fn_df_DispRel_ice_inf
          !-------------------------------------------------------------
          !  Newton-Raphson root finder for the dispersion relation
-         !
-         function newton_root(x0, tol, maxiter) result(root)
+         !  Williams et al., (2013)
+         function newton_root_dimless(k0, del, tol, maxiter) result(root)
             implicit none
-            real(kind=dbl_kind), intent(in) :: x0
-            real(kind=dbl_kind), intent(in) :: tol
+            real(dbl_kind), intent(in) :: k0, del, tol
             integer, intent(in) :: maxiter
-
-            real(kind=dbl_kind) :: root, x, x_new, fx, dfx
+            real(dbl_kind) :: root, k, k_new, f, df
             integer :: iter
 
-            x = x0
+            k = k0
 
             do iter = 1, maxiter
-               fx = fn_DispRel_ice_inf(x)
-               dfx = fn_df_DispRel_ice_inf(x)
+               f  = k**5 + del*k - 1.0d0
+               df = 5.0d0*k**4 + del
 
-               if (abs(dfx) < puny) then
+               if (abs(df) < puny) then
                      print *, 'WARNING: derivative too small'
-                     exit
-               end if
-
-               x_new = x - fx / dfx
-
-               if (abs(x_new - x) < tol) then
-                     root = x_new
+                     root = k
                      return
                end if
 
-               x = x_new
+               k_new = k - f/df
+
+               if (abs(k_new - k) < tol) then
+                     root = k_new
+                     return
+               end if
+
+               k = k_new
             end do
 
             print *, 'WARNING: Newton did not converge'
-            root = x
-         end function newton_root
+            root = k
+         end function
 
 
       end subroutine wave_frac_lognormal
