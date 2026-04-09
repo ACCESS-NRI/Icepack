@@ -895,7 +895,7 @@
          aminweld = p1  ! minimum ice concentration likely to weld
 
       real (kind=dbl_kind), parameter :: &
-         c_weld = 1.0e-8_dbl_kind
+         c_weld = 1.0e-3_dbl_kind
                         ! constant of proportionality for welding
                         ! total number of floes that weld with another, per square meter,
                         ! per unit time, in the case of a fully covered ice surface
@@ -921,10 +921,15 @@
       real(kind=dbl_kind) :: &
          kern       , & ! kernel
          subdt      , & ! subcycling time step for stability (s)
-         elapsed_t      ! elapsed subcycling time
+         elapsed_t  , & ! elapsed subcycling time
+         ni, nj     , & ! number density of floes in categories i and j
+         max_rate   , & ! maximum rate of change of afsdn (1/s)
+         rate       , & ! rate of change of afsdn (1/s)
+         safety_factor  ! safety factor for subcycling
 
       character(len=*), parameter :: subname='(fsd_weld_thermo)'
 
+      safety_factor = 0.02_dbl_kind
 
       afsdn  (:,:) = c0
       afsd_init(:) = c0
@@ -956,13 +961,50 @@
             DO WHILE (elapsed_t < dt)
 
                ! calculate sub timestep
-               nfsd_tmp = afsd_tmp/floe_area_c
-               WHERE (afsd_tmp > puny) &
-                  stability = nfsd_tmp/(c_weld*afsd_tmp*aicen(n))
-               WHERE (stability < puny) stability = bignum
-               subdt = MINVAL(stability)
-               subdt = MIN(subdt,dt)
+               ! nfsd_tmp = afsd_tmp/floe_area_c
+               ! WHERE (afsd_tmp > puny) &
+               !    stability = nfsd_tmp/(c_weld*afsd_tmp*aicen(n))
+               ! WHERE (stability < puny) stability = bignum
+               ! ! print *, 'stability = ', stability
+               ! subdt = MINVAL(stability)
+               ! subdt = MIN(subdt,dt)
+               max_rate = c0
 
+               do i = 1, nfsd
+                  if (afsd_tmp(i) < puny) cycle
+                  do j = i, nfsd
+                     if (afsd_tmp(j) < puny) cycle
+
+                     k = iweld(i,j)
+                     if (k <= 0) cycle
+
+                     ! number density
+                     ni = afsd_tmp(i) / floe_area_c(i)
+                     nj = afsd_tmp(j) / floe_area_c(j)
+
+                     ! kernel (keep consistent with your physics!)
+                     ! kern = c_weld * floe_area_c(i) * aicen(n)
+                     kern = c_weld * aicen(n)
+
+                     if (i == j) then
+                        rate = 0.5_dbl_kind * kern * ni * ni
+                     else
+                        rate = kern * ni * nj
+                     end if
+
+                     if (rate > max_rate) max_rate = rate
+
+                  end do
+               end do
+               if (max_rate > puny) then
+                  subdt = safety_factor / max_rate
+               else
+                  subdt = dt
+               end if
+
+               ! do not exceed remaining time
+               subdt = MIN(subdt, dt - elapsed_t)
+               ! print *, 'subdt = ', subdt
                loss(:) = c0
                gain(:) = c0
 
@@ -970,9 +1012,19 @@
                do j = 1, nfsd ! consider all interaction partners
                    k = iweld(i,j) ! product of i+j
                    if (k > i) then
-                       kern = c_weld * floe_area_c(i) * aicen(n)
-                       loss(i) = loss(i) + kern*afsd_tmp(i)*afsd_tmp(j)
-                       gain(k) = gain(k) + kern*afsd_tmp(i)*afsd_tmp(j)
+                     !   kern = c_weld * floe_area_c(i) * aicen(n)
+                       kern = c_weld * aicen(n)
+                     !   loss(i) = loss(i) + kern*afsd_tmp(i)*afsd_tmp(j)
+                     !   gain(k) = gain(k) + kern*afsd_tmp(i)*afsd_tmp(j)
+                     if (i == j) then
+                        ! self-collision: double loss
+                        loss(i) = loss(i) + 2.0 * kern * afsd_tmp(i)*afsd_tmp(j)
+                        gain(k) = gain(k) + kern * afsd_tmp(i)*afsd_tmp(j)
+                     else
+                        loss(i) = loss(i) + kern * afsd_tmp(i)*afsd_tmp(j)
+                        loss(j) = loss(j) + kern * afsd_tmp(i)*afsd_tmp(j)
+                        gain(k) = gain(k) + kern * afsd_tmp(i)*afsd_tmp(j)
+                     end if
                    end if
                end do
                end do
