@@ -895,7 +895,7 @@
          aminweld = p1  ! minimum ice concentration likely to weld
 
       real (kind=dbl_kind), parameter :: &
-         c_weld = 1.0e-3_dbl_kind
+         c_weld = 1.0e-6_dbl_kind
                         ! constant of proportionality for welding
                         ! total number of floes that weld with another, per square meter,
                         ! per unit time, in the case of a fully covered ice surface
