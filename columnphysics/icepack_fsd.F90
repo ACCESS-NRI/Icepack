@@ -873,6 +873,10 @@
 
       subroutine fsd_weld_thermo (dt,    frzmlt, &
                                   aicen, trcrn,  &
+                                  wave_sig_ht,   &
+                                  wave_spectrum, &
+                                  wavefreq,      &
+                                  dwavefreq,     &
                                   d_afsd_weld)
 
       real (kind=dbl_kind), intent(in) :: &
@@ -887,6 +891,16 @@
       real (kind=dbl_kind), dimension (:,:), intent(inout) :: &
          trcrn          ! ice tracers
 
+      real (kind=dbl_kind), intent(in), optional :: &
+         wave_sig_ht    ! significant height of waves in ice (m)
+
+      real (kind=dbl_kind), dimension(:), intent(in), optional  :: &
+         wave_spectrum  ! ocean surface wave spectrum E(f) (m^2 s)
+
+      real(kind=dbl_kind), dimension(:), intent(in), optional :: &
+         wavefreq, &    ! wave frequencies (s^-1)
+         dwavefreq      ! wave frequency bin widths (s^-1)
+
       real (kind=dbl_kind), dimension (:), intent(inout) :: &
          d_afsd_weld    ! change in fsd due to welding
 
@@ -895,6 +909,7 @@
          aminweld = p1  ! minimum ice concentration likely to weld
 
       real (kind=dbl_kind), parameter :: &
+         ! c_weld = 1.0e-8_dbl_kind
          c_weld = 1.0e-6_dbl_kind
                         ! constant of proportionality for welding
                         ! total number of floes that weld with another, per square meter,
@@ -903,7 +918,8 @@
 
       integer (kind=int_kind) :: &
         n           , & ! thickness category index
-        k, i, j         ! floe size category indices
+        k, i, j     , & ! floe size category indices
+        new_size        ! maximum floe size category allowed by waves
 
       real (kind=dbl_kind), dimension(nfsd,ncat) :: &
          afsdn          ! floe size distribution tracer
@@ -918,6 +934,9 @@
          afsd_tmp   , & ! work array
          gain, loss     ! welding tendencies
 
+      integer (kind=int_kind), dimension(nfsd,nfsd) :: &
+         iweld_limited     ! wave-limited welding target category
+
       real(kind=dbl_kind) :: &
          kern       , & ! kernel
          subdt      , & ! subcycling time step for stability (s)
@@ -925,7 +944,11 @@
          ni, nj     , & ! number density of floes in categories i and j
          max_rate   , & ! maximum rate of change of afsdn (1/s)
          rate       , & ! rate of change of afsdn (1/s)
-         safety_factor  ! safety factor for subcycling
+         safety_factor, & ! safety factor for subcycling
+         wave_sig_ht_local ! wave height value when optional argument is absent
+
+      logical (kind=log_kind) :: &
+         use_wave_limit  ! true when all wave inputs are available
 
       character(len=*), parameter :: subname='(fsd_weld_thermo)'
 
@@ -934,11 +957,27 @@
       afsdn  (:,:) = c0
       afsd_init(:) = c0
       stability    = c0
+      d_afsd_weld (:)   = c0
+      d_afsdn_weld(:,:) = c0
+
+      wave_sig_ht_local = c0
+      if (present(wave_sig_ht)) wave_sig_ht_local = wave_sig_ht
+      use_wave_limit = present(wave_sig_ht) .and. present(wave_spectrum) &
+                  .and. present(wavefreq) .and. present(dwavefreq)
+
+      new_size = nfsd
+      if (use_wave_limit .and. wave_sig_ht_local > puny) then
+         call wave_dep_growth (wave_spectrum, &
+                               wavefreq, dwavefreq, &
+                               new_size)
+         if (icepack_warnings_aborted(subname)) return
+      end if
+
+      iweld_limited(:,:) = iweld(:,:)
+      where (iweld_limited > new_size) iweld_limited = -999
 
       do n = 1, ncat
 
-         d_afsd_weld (:)   = c0
-         d_afsdn_weld(:,n) = c0
          afsdn(:,n) = trcrn(nt_fsd:nt_fsd+nfsd-1,n)
          call icepack_cleanup_fsdn (afsdn(:,n))
          if (icepack_warnings_aborted(subname)) return
@@ -974,22 +1013,20 @@
                   if (afsd_tmp(i) < puny) cycle
                   do j = i, nfsd
                      if (afsd_tmp(j) < puny) cycle
+                     k = iweld_limited(i,j)
+                     if (k <= i) cycle
 
-                     k = iweld(i,j)
-                     if (k <= 0) cycle
-
-                     ! number density
+                     ! number density in each size category within this thickness class
                      ni = afsd_tmp(i) / floe_area_c(i)
                      nj = afsd_tmp(j) / floe_area_c(j)
 
-                     ! kernel (keep consistent with your physics!)
-                     ! kern = c_weld * floe_area_c(i) * aicen(n)
-                     kern = c_weld * aicen(n)
+                     ! collision kernel: constant in floe-number space, scaled by ice area
+                     kern = c_weld
 
                      if (i == j) then
-                        rate = 0.5_dbl_kind * kern * ni * ni
+                        rate = 0.5_dbl_kind * kern * aicen(n) * ni * ni
                      else
-                        rate = kern * ni * nj
+                        rate = kern * aicen(n) * ni * nj
                      end if
 
                      if (rate > max_rate) max_rate = rate
@@ -1009,22 +1046,26 @@
                gain(:) = c0
 
                do i = 1, nfsd ! consider loss from this category
-               do j = 1, nfsd ! consider all interaction partners
-                   k = iweld(i,j) ! product of i+j
+               do j = i, nfsd ! consider all interaction partners
+                   k = iweld_limited(i,j) ! product of i+j, capped by waves
                    if (k > i) then
-                     !   kern = c_weld * floe_area_c(i) * aicen(n)
-                       kern = c_weld * aicen(n)
-                     !   loss(i) = loss(i) + kern*afsd_tmp(i)*afsd_tmp(j)
-                     !   gain(k) = gain(k) + kern*afsd_tmp(i)*afsd_tmp(j)
-                     if (i == j) then
-                        ! self-collision: double loss
-                        loss(i) = loss(i) + 2.0 * kern * afsd_tmp(i)*afsd_tmp(j)
-                        gain(k) = gain(k) + kern * afsd_tmp(i)*afsd_tmp(j)
-                     else
-                        loss(i) = loss(i) + kern * afsd_tmp(i)*afsd_tmp(j)
-                        loss(j) = loss(j) + kern * afsd_tmp(i)*afsd_tmp(j)
-                        gain(k) = gain(k) + kern * afsd_tmp(i)*afsd_tmp(j)
-                     end if
+                       kern = c_weld
+                       if (i == j) then
+                          ! self-collision: area loss and gain include size factors
+                          loss(i) = loss(i) + kern * aicen(n) * afsd_tmp(i)**2 &
+                                       / floe_area_c(i)
+                          gain(k) = gain(k) + 0.5_dbl_kind * kern * aicen(n) &
+                                       * afsd_tmp(i)**2 * floe_area_c(k) / &
+                                       floe_area_c(i)**2
+                       else
+                          loss(i) = loss(i) + kern * aicen(n) * afsd_tmp(i)*afsd_tmp(j) &
+                                       / floe_area_c(j)
+                          loss(j) = loss(j) + kern * aicen(n) * afsd_tmp(i)*afsd_tmp(j) &
+                                       / floe_area_c(i)
+                          gain(k) = gain(k) + kern * aicen(n) * afsd_tmp(i)*afsd_tmp(j) &
+                                       * floe_area_c(k) / &
+                                       (floe_area_c(i)*floe_area_c(j))
+                       end if
                    end if
                end do
                end do

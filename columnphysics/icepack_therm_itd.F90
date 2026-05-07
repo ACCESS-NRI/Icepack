@@ -2134,6 +2134,10 @@
       if (tr_fsd) then
          call fsd_weld_thermo (dt,    frzmlt, &
                                aicen, trcrn,  &
+                               wave_sig_ht,           &
+                               wave_spectrum,         &
+                               wavefreq,              &
+                               dwavefreq,             &
                                d_afsd_weld)
          if (icepack_warnings_aborted(subname)) return
       endif
