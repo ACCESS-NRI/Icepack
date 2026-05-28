@@ -44,7 +44,7 @@
 
       use icepack_kinds
       use icepack_parameters, only: c0, c1, c2, c4, p01, p1, p5, puny
-      use icepack_parameters, only: pi, floeshape, wave_spec, bignum, gravit, rhoi
+      use icepack_parameters, only: pi, floeshape, c_weld, wave_spec, bignum, gravit, rhoi
       use icepack_tracers, only: nt_fsd, tr_fsd, nfsd, ncat
       use icepack_warnings, only: warnstr, icepack_warnings_add
       use icepack_warnings, only: icepack_warnings_setabort, icepack_warnings_aborted
@@ -906,13 +906,7 @@
       real (kind=dbl_kind), parameter :: &
          aminweld = p1  ! minimum ice concentration likely to weld
 
-      real (kind=dbl_kind), parameter :: &
-         ! c_weld = 1.0e-8_dbl_kind
-         c_weld = 1.0e-6_dbl_kind
-                        ! constant of proportionality for welding
-                        ! total number of floes that weld with another, per square meter,
-                        ! per unit time, in the case of a fully covered ice surface
-                        ! units m^-2 s^-1, see documentation for details
+      ! c_weld is set via icepack_parameters.
 
       integer (kind=int_kind) :: &
         n           , & ! thickness category index

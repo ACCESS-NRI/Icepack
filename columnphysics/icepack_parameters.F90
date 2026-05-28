@@ -323,7 +323,8 @@
          nfreq = 25                   ! number of frequencies
 
       real (kind=dbl_kind), public :: &
-         floeshape = 0.66_dbl_kind    ! constant from Rothrock 1984 (unitless)
+         floeshape = 0.66_dbl_kind, & ! constant from Rothrock 1984 (unitless)
+         c_weld    = 1.0e-6_dbl_kind ! welding proportionality constant (m^-2 s^-1)
 
       real (kind=dbl_kind), public :: &
          floediam  = 300.0_dbl_kind   ! effective floe diameter for lateral melt (m)
@@ -593,7 +594,7 @@
          atmiter_conv_in, calc_dragio_in, &
          tfrz_option_in, kitd_in, kcatbound_in, hs0_in, frzpnd_in, &
          apnd_sl_in, saltflux_option_in, congel_freeze_in, &
-         floeshape_in, wave_spec_in, wave_spec_type_in, wave_height_type_in, nfreq_in, &
+         floeshape_in, c_weld_in, wave_spec_in, wave_spec_type_in, wave_height_type_in, nfreq_in, &
          dpscale_in, rfracmin_in, rfracmax_in, pndaspect_in, hs1_in, hp1_in, &
          bgc_flux_type_in, z_tracers_in, scale_bgc_in, solve_zbgc_in, &
          modal_aero_in, use_macromolecules_in, restartbgc_in, skl_bgc_in, &
@@ -879,7 +880,8 @@
          nfreq_in           ! number of frequencies
 
       real (kind=dbl_kind), intent(in), optional :: &
-         floeshape_in       ! constant from Rothrock 1984 (unitless)
+         floeshape_in, &      ! constant from Rothrock 1984 (unitless)
+         c_weld_in         ! welding proportionality constant (m^-2 s^-1)
 
       logical (kind=log_kind), intent(in), optional :: &
          wave_spec_in       ! if true, use wave forcing
@@ -1235,6 +1237,7 @@
       if (present(kitd_in)              ) kitd             = kitd_in
       if (present(kcatbound_in)         ) kcatbound        = kcatbound_in
       if (present(floeshape_in)         ) floeshape        = floeshape_in
+      if (present(c_weld_in)            ) c_weld          = c_weld_in
       if (present(wave_spec_in)         ) wave_spec        = wave_spec_in
       if (present(wave_spec_type_in)    ) wave_spec_type   = wave_spec_type_in
       if (present(wave_height_type_in)  ) wave_height_type = wave_height_type_in
@@ -1607,7 +1610,7 @@
          atmiter_conv_out, calc_dragio_out, &
          tfrz_option_out, kitd_out, kcatbound_out, hs0_out, frzpnd_out, &
          apnd_sl_out, saltflux_option_out, congel_freeze_out, &
-         floeshape_out, wave_spec_out, wave_spec_type_out, wave_height_type_out, nfreq_out, &
+         floeshape_out, c_weld_out, wave_spec_out, wave_spec_type_out, wave_height_type_out, nfreq_out, &
          dpscale_out, rfracmin_out, rfracmax_out, pndaspect_out, hs1_out, hp1_out, &
          bgc_flux_type_out, z_tracers_out, scale_bgc_out, solve_zbgc_out, &
          modal_aero_out, use_macromolecules_out, restartbgc_out, use_atm_dust_iron_out, &
@@ -1903,7 +1906,8 @@
          nfreq_out          ! number of frequencies
 
       real (kind=dbl_kind), intent(out), optional :: &
-         floeshape_out      ! constant from Rothrock 1984 (unitless)
+         floeshape_out, &     ! constant from Rothrock 1984 (unitless)
+         c_weld_out        ! welding proportionality constant (m^-2 s^-1)
 
       logical (kind=log_kind), intent(out), optional :: &
          wave_spec_out      ! if true, use wave forcing
@@ -2291,6 +2295,7 @@
       if (present(kitd_out)              ) kitd_out         = kitd
       if (present(kcatbound_out)         ) kcatbound_out    = kcatbound
       if (present(floeshape_out)         ) floeshape_out    = floeshape
+      if (present(c_weld_out)           ) c_weld_out      = c_weld
       if (present(wave_spec_out)         ) wave_spec_out    = wave_spec
       if (present(wave_spec_type_out)    ) wave_spec_type_out = wave_spec_type
       if (present(wave_height_type_out)  ) wave_height_type_out = wave_height_type
@@ -2605,6 +2610,7 @@
         write(iounit,*) "  kitd       = ", kitd
         write(iounit,*) "  kcatbound  = ", kcatbound
         write(iounit,*) "  floeshape  = ", floeshape
+        write(iounit,*) "  c_weld     = ", c_weld
         write(iounit,*) "  wave_spec  = ", wave_spec
         write(iounit,*) "  wave_spec_type = ", trim(wave_spec_type)
         write(iounit,*) "  wave_height_type = ", trim(wave_height_type)

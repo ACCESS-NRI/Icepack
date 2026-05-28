@@ -101,7 +101,7 @@
          mu_rdg, hs0, dpscale, rfracmin, rfracmax, pndaspect, hs1, hp1, &
          apnd_sl, tscale_pnd_drain, itd_area_min, itd_mass_min, &
          a_rapid_mode, Rac_rapid_mode, aspect_rapid_mode, dSdt_slow_mode, &
-         phi_c_slow_mode, phi_i_mushy, kalg, emissivity, floediam, hfrazilmin, &
+         phi_c_slow_mode, phi_i_mushy, kalg, emissivity, floediam, c_weld, hfrazilmin, &
          rsnw_fall, rsnw_tmax, rhosnew, rhosmin, rhosmax, &
          windmin, drhosdwind, snwlvlfac, snw_growth_wet, drsnw_min, snwliq_max
 
@@ -160,7 +160,7 @@
         kitd,           ktherm,          ksno,     conduct,             &
         a_rapid_mode,   Rac_rapid_mode,  aspect_rapid_mode,             &
         dSdt_slow_mode, phi_c_slow_mode, phi_i_mushy,                   &
-        floediam,       hfrazilmin,      Tliquidus_max,    hi_min,      &
+        floediam,       c_weld,         hfrazilmin,      Tliquidus_max,    hi_min,      &
         tscale_pnd_drain
 
       namelist /dynamics_nml/ &
@@ -241,7 +241,7 @@
            ktherm_out=ktherm, calc_Tsfc_out=calc_Tsfc, &
            semi_implicit_Tsfc_out=semi_implicit_Tsfc, &
            vapor_flux_correction_out=vapor_flux_correction, &
-           floediam_out=floediam, hfrazilmin_out=hfrazilmin, &
+           floediam_out=floediam, c_weld_out=c_weld, hfrazilmin_out=hfrazilmin, &
            update_ocn_f_out = update_ocn_f, cpl_frazil_out = cpl_frazil, &
            conduct_out=conduct, a_rapid_mode_out=a_rapid_mode, &
            Rac_rapid_mode_out=Rac_rapid_mode, &
@@ -621,6 +621,11 @@
          write (nu_diag,*) 'WARNING: dEdd shortwave is not.'
       endif
 
+      if (c_weld < c0) then
+         write (nu_diag,*) 'WARNING: c_weld < 0; setting c_weld = 0'
+         c_weld = c0
+      endif
+
       rfracmin = min(max(rfracmin,c0),c1)
       rfracmax = min(max(rfracmax,c0),c1)
 
@@ -773,6 +778,7 @@
          write(nu_diag,1005) ' sw_frac                   = ', sw_frac
          write(nu_diag,1005) ' sw_dtemp                  = ', sw_dtemp
 
+         write(nu_diag,1000) ' c_weld                    = ', c_weld
          write(nu_diag,1000) ' rfracmin                  = ', rfracmin
          write(nu_diag,1000) ' rfracmax                  = ', rfracmax
          if (tr_pond_lvl .or. tr_pond_sealvl) then
@@ -1041,7 +1047,7 @@
            rfracmin_in=rfracmin, rfracmax_in=rfracmax, &
            pndaspect_in=pndaspect, hs1_in=hs1, hp1_in=hp1, &
            apnd_sl_in=apnd_sl, tscale_pnd_drain_in=tscale_pnd_drain, &
-           floediam_in=floediam, hfrazilmin_in=hfrazilmin, &
+           floediam_in=floediam, c_weld_in=c_weld, hfrazilmin_in=hfrazilmin, &
            ktherm_in=ktherm, calc_Tsfc_in=calc_Tsfc, &
            semi_implicit_Tsfc_in=semi_implicit_Tsfc, &
            vapor_flux_correction_in=vapor_flux_correction, &
