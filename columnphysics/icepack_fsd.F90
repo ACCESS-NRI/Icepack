@@ -876,7 +876,6 @@
                                   wave_sig_ht,   &
                                   wave_spectrum, &
                                   wavefreq,      &
-                                  dwavefreq,     &
                                   d_afsd_weld)
 
       real (kind=dbl_kind), intent(in) :: &
@@ -898,8 +897,7 @@
          wave_spectrum  ! ocean surface wave spectrum E(f) (m^2 s)
 
       real(kind=dbl_kind), dimension(:), intent(in), optional :: &
-         wavefreq, &    ! wave frequencies (s^-1)
-         dwavefreq      ! wave frequency bin widths (s^-1)
+         wavefreq       ! wave frequencies (s^-1)
 
       real (kind=dbl_kind), dimension (:), intent(inout) :: &
          d_afsd_weld    ! change in fsd due to welding
@@ -963,7 +961,7 @@
       wave_sig_ht_local = c0
       if (present(wave_sig_ht)) wave_sig_ht_local = wave_sig_ht
       use_wave_limit = present(wave_sig_ht) .and. present(wave_spectrum) &
-                  .and. present(wavefreq) .and. present(dwavefreq)
+                  .and. present(wavefreq)
 
       new_size = nfsd
       if (use_wave_limit .and. wave_sig_ht_local > puny) then
