@@ -332,7 +332,7 @@
          wave_spec = .false.          ! if true, use wave forcing
 
       character (len=char_len), public :: &
-         wave_spec_type = 'constant' , &    ! 'none', 'constant', or 'random'
+         wave_spec_type = 'constant' , &    ! 'none', 'profile', 'constant', 'random', or 'icdr'
          wave_height_type = 'internal'      ! 'none', 'internal', 'coupled'
 
 !-----------------------------------------------------------------------

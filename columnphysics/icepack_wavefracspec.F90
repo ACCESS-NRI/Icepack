@@ -245,11 +245,9 @@
       character(len=*),parameter :: &
          subname='(icepack_step_wavefracture)'
       
-      character(len=16) :: wave_frac_type
          
 
       !------------------------------------
-      wave_frac_type = 'lognormal'
       !------------------------------------
 
       ! initialize
@@ -277,7 +275,7 @@
          hbar = vice / aice
 
          ! calculate fracture histogram
-         if (trim(wave_frac_type) .eq. 'lognormal') then
+         if (trim(wave_spec_type) .eq. 'icdr') then
             call wave_frac_lognormal(nfreq, wave_spec_type, &
                            wavefreq, dwavefreq, &
                            hbar, wave_spectrum, fracture_hist)
