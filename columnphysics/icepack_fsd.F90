@@ -967,9 +967,8 @@
 
       new_size = nfsd
       if (use_wave_limit .and. wave_sig_ht_local > puny) then
-         call wave_dep_growth (wave_spectrum, &
-                               wavefreq, dwavefreq, &
-                               new_size)
+         call wave_dep_growth (wave_spectrum, wave_sig_ht_local, &
+                               wavefreq, new_size)
          if (icepack_warnings_aborted(subname)) return
       end if
 
