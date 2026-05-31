@@ -44,7 +44,8 @@
 
       use icepack_kinds
       use icepack_parameters, only: c0, c1, c2, c4, p01, p1, p5, puny
-      use icepack_parameters, only: pi, floeshape, c_weld, wave_spec, bignum, gravit, rhoi
+      use icepack_parameters, only: pi, floeshape, c_weld, weld_method, &
+         wave_depedent_welding, wave_spec, bignum, gravit, rhoi
       use icepack_tracers, only: nt_fsd, tr_fsd, nfsd, ncat
       use icepack_warnings, only: warnstr, icepack_warnings_add
       use icepack_warnings, only: icepack_warnings_setabort, icepack_warnings_aborted
@@ -954,7 +955,7 @@
 
       wave_sig_ht_local = c0
       if (present(wave_sig_ht)) wave_sig_ht_local = wave_sig_ht
-      use_wave_limit = present(wave_sig_ht) .and. present(wave_spectrum) &
+      use_wave_limit = wave_depedent_welding .and. present(wave_sig_ht) .and. present(wave_spectrum) &
                   .and. present(wavefreq)
 
       new_size = nfsd
@@ -991,75 +992,90 @@
             DO WHILE (elapsed_t < dt)
 
                ! calculate sub timestep
-               ! nfsd_tmp = afsd_tmp/floe_area_c
-               ! WHERE (afsd_tmp > puny) &
-               !    stability = nfsd_tmp/(c_weld*afsd_tmp*aicen(n))
-               ! WHERE (stability < puny) stability = bignum
-               ! ! print *, 'stability = ', stability
-               ! subdt = MINVAL(stability)
-               ! subdt = MIN(subdt,dt)
-               max_rate = c0
+               if (trim(weld_method) == 'constant') then
+                  max_rate = c0
 
-               do i = 1, nfsd
-                  if (afsd_tmp(i) < puny) cycle
-                  do j = i, nfsd
-                     if (afsd_tmp(j) < puny) cycle
-                     k = iweld_limited(i,j)
-                     if (k <= i) cycle
+                  do i = 1, nfsd
+                     if (afsd_tmp(i) < puny) cycle
+                     do j = i, nfsd
+                        if (afsd_tmp(j) < puny) cycle
+                        k = iweld_limited(i,j)
+                        if (k <= i) cycle
 
-                     ! number density in each size category within this thickness class
-                     ni = afsd_tmp(i) / floe_area_c(i)
-                     nj = afsd_tmp(j) / floe_area_c(j)
+                        ! number density in each size category within this thickness class
+                        ni = afsd_tmp(i) / floe_area_c(i)
+                        nj = afsd_tmp(j) / floe_area_c(j)
 
-                     ! collision kernel: constant in floe-number space, scaled by ice area
-                     kern = c_weld
+                        ! collision kernel: constant in floe-number space, scaled by ice area
+                        kern = c_weld
 
-                     if (i == j) then
-                        rate = 0.5_dbl_kind * kern * aicen(n) * ni * ni
-                     else
-                        rate = kern * aicen(n) * ni * nj
-                     end if
+                        if (i == j) then
+                           rate = 0.5_dbl_kind * kern * aicen(n) * ni * ni
+                        else
+                           rate = kern * aicen(n) * ni * nj
+                        end if
 
-                     if (rate > max_rate) max_rate = rate
+                        if (rate > max_rate) max_rate = rate
 
+                     end do
                   end do
-               end do
-               if (max_rate > puny) then
-                  subdt = safety_factor / max_rate
+                  if (max_rate > puny) then
+                     subdt = safety_factor / max_rate
+                  else
+                     subdt = dt
+                  end if
+
+                  ! do not exceed remaining time
+                  subdt = MIN(subdt, dt - elapsed_t)
                else
-                  subdt = dt
+                  nfsd_tmp = afsd_tmp/floe_area_c
+                  WHERE (afsd_tmp > puny) &
+                     stability = nfsd_tmp/(c_weld*afsd_tmp*aicen(n))
+                  WHERE (stability < puny) stability = bignum
+                  subdt = MINVAL(stability)
+                  subdt = MIN(subdt, dt - elapsed_t)
                end if
 
-               ! do not exceed remaining time
-               subdt = MIN(subdt, dt - elapsed_t)
-               ! print *, 'subdt = ', subdt
                loss(:) = c0
                gain(:) = c0
 
-               do i = 1, nfsd ! consider loss from this category
-               do j = i, nfsd ! consider all interaction partners
-                   k = iweld_limited(i,j) ! product of i+j, capped by waves
-                   if (k > i) then
-                       kern = c_weld
-                       if (i == j) then
-                          ! self-collision: area loss and gain include size factors
-                          loss(i) = loss(i) + kern * aicen(n) * afsd_tmp(i)**2 &
-                                       / floe_area_c(i)
-                          gain(k) = gain(k) + 0.5_dbl_kind * kern * aicen(n) &
-                                       * afsd_tmp(i)**2 * floe_area_c(k) / &
-                                       floe_area_c(i)**2
-                       else
-                          loss(i) = loss(i) + kern * aicen(n) * afsd_tmp(i)*afsd_tmp(j) &
-                                       / floe_area_c(j)
-                          loss(j) = loss(j) + kern * aicen(n) * afsd_tmp(i)*afsd_tmp(j) &
-                                       / floe_area_c(i)
-                          gain(k) = gain(k) + kern * aicen(n) * afsd_tmp(i)*afsd_tmp(j) &
-                                       * floe_area_c(k) / &
-                                       (floe_area_c(i)*floe_area_c(j))
-                       end if
-                   end if
-               end do
-               end do
+               if (trim(weld_method) == 'constant') then
+                  do i = 1, nfsd ! consider loss from this category
+                  do j = i, nfsd ! consider all interaction partners
+                     k = iweld_limited(i,j) ! product of i+j, capped by waves
+                     if (k > i) then
+                        kern = c_weld
+                        if (i == j) then
+                           ! self-collision: area loss and gain include size factors
+                           loss(i) = loss(i) + kern * aicen(n) * afsd_tmp(i)**2 &
+                                        / floe_area_c(i)
+                           gain(k) = gain(k) + 0.5_dbl_kind * kern * aicen(n) &
+                                        * afsd_tmp(i)**2 * floe_area_c(k) / &
+                                        floe_area_c(i)**2
+                        else
+                           loss(i) = loss(i) + kern * aicen(n) * afsd_tmp(i)*afsd_tmp(j) &
+                                        / floe_area_c(j)
+                           loss(j) = loss(j) + kern * aicen(n) * afsd_tmp(i)*afsd_tmp(j) &
+                                        / floe_area_c(i)
+                           gain(k) = gain(k) + kern * aicen(n) * afsd_tmp(i)*afsd_tmp(j) &
+                                        * floe_area_c(k) / &
+                                        (floe_area_c(i)*floe_area_c(j))
+                        end if
+                     end if
+                  end do
+                  end do
+               else
+                  do i = 1, nfsd ! consider loss from this category
+                  do j = 1, nfsd ! consider all interaction partners
+                     k = iweld_limited(i,j) ! product of i+j, capped by waves
+                     if (k > i) then
+                        kern = c_weld * floe_area_c(i) * aicen(n)
+                        loss(i) = loss(i) + kern*afsd_tmp(i)*afsd_tmp(j)
+                        gain(k) = gain(k) + kern*afsd_tmp(i)*afsd_tmp(j)
+                     end if
+                  end do
+                  end do
+               end if
 
                ! does largest category lose?
 !               if (loss(nfsd) > puny) stop 'weld, largest cat losing'
