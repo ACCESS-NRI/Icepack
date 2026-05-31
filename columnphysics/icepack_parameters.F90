@@ -331,7 +331,7 @@
 
       logical (kind=log_kind), public :: &
          wave_spec = .false., &       ! if true, use wave forcing
-         wave_depedent_welding = .false. ! if true, limit welding by waves
+         wave_dep_welding = .false. ! if true, limit welding by waves
 
       character (len=char_len), public :: &
          wave_spec_type = 'constant' , &    ! 'none', 'profile', 'constant', 'random', or 'icdr'
@@ -596,7 +596,7 @@
          atmiter_conv_in, calc_dragio_in, &
          tfrz_option_in, kitd_in, kcatbound_in, hs0_in, frzpnd_in, &
          apnd_sl_in, saltflux_option_in, congel_freeze_in, &
-         floeshape_in, c_weld_in, weld_method_in, wave_spec_in, wave_depedent_welding_in, &
+         floeshape_in, c_weld_in, weld_method_in, wave_spec_in, wave_dep_welding_in, &
          wave_spec_type_in, wave_height_type_in, nfreq_in, &
          dpscale_in, rfracmin_in, rfracmax_in, pndaspect_in, hs1_in, hp1_in, &
          bgc_flux_type_in, z_tracers_in, scale_bgc_in, solve_zbgc_in, &
@@ -888,7 +888,7 @@
 
       logical (kind=log_kind), intent(in), optional :: &
          wave_spec_in, &              ! if true, use wave forcing
-         wave_depedent_welding_in     ! if true, limit welding by waves
+         wave_dep_welding_in     ! if true, limit welding by waves
 
       character (len=*), intent(in), optional :: &
          weld_method_in,     & ! 'multiplicative' or 'constant'
@@ -1245,7 +1245,7 @@
       if (present(c_weld_in)            ) c_weld          = c_weld_in
       if (present(weld_method_in)       ) weld_method     = weld_method_in
       if (present(wave_spec_in)         ) wave_spec        = wave_spec_in
-      if (present(wave_depedent_welding_in)) wave_depedent_welding = wave_depedent_welding_in
+      if (present(wave_dep_welding_in)) wave_dep_welding = wave_dep_welding_in
       if (present(wave_spec_type_in)    ) wave_spec_type   = wave_spec_type_in
       if (present(wave_height_type_in)  ) wave_height_type = wave_height_type_in
       if (present(nfreq_in)             ) nfreq            = nfreq_in
@@ -1617,7 +1617,7 @@
          atmiter_conv_out, calc_dragio_out, &
          tfrz_option_out, kitd_out, kcatbound_out, hs0_out, frzpnd_out, &
          apnd_sl_out, saltflux_option_out, congel_freeze_out, &
-         floeshape_out, c_weld_out, weld_method_out, wave_spec_out, wave_depedent_welding_out, &
+         floeshape_out, c_weld_out, weld_method_out, wave_spec_out, wave_dep_welding_out, &
          wave_spec_type_out, wave_height_type_out, nfreq_out, &
          dpscale_out, rfracmin_out, rfracmax_out, pndaspect_out, hs1_out, hp1_out, &
          bgc_flux_type_out, z_tracers_out, scale_bgc_out, solve_zbgc_out, &
@@ -1919,7 +1919,7 @@
 
       logical (kind=log_kind), intent(out), optional :: &
          wave_spec_out, &             ! if true, use wave forcing
-         wave_depedent_welding_out    ! if true, limit welding by waves
+         wave_dep_welding_out    ! if true, limit welding by waves
 
       character (len=*), intent(out), optional :: &
          weld_method_out,    & ! 'multiplicative' or 'constant'
@@ -2308,7 +2308,7 @@
       if (present(c_weld_out)           ) c_weld_out      = c_weld
       if (present(weld_method_out)       ) weld_method_out = weld_method
       if (present(wave_spec_out)         ) wave_spec_out    = wave_spec
-      if (present(wave_depedent_welding_out)) wave_depedent_welding_out = wave_depedent_welding
+      if (present(wave_dep_welding_out)) wave_dep_welding_out = wave_dep_welding
       if (present(wave_spec_type_out)    ) wave_spec_type_out = wave_spec_type
       if (present(wave_height_type_out)  ) wave_height_type_out = wave_height_type
       if (present(nfreq_out)             ) nfreq_out        = nfreq
@@ -2625,7 +2625,7 @@
         write(iounit,*) "  c_weld     = ", c_weld
         write(iounit,*) "  weld_method = ", trim(weld_method)
         write(iounit,*) "  wave_spec  = ", wave_spec
-        write(iounit,*) "  wave_depedent_welding = ", wave_depedent_welding
+        write(iounit,*) "  wave_dep_welding = ", wave_dep_welding
         write(iounit,*) "  wave_spec_type = ", trim(wave_spec_type)
         write(iounit,*) "  wave_height_type = ", trim(wave_height_type)
         write(iounit,*) "  nfreq      = ", nfreq

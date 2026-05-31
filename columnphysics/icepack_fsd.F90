@@ -45,7 +45,7 @@
       use icepack_kinds
       use icepack_parameters, only: c0, c1, c2, c4, p01, p1, p5, puny
       use icepack_parameters, only: pi, floeshape, c_weld, weld_method, &
-         wave_depedent_welding, wave_spec, bignum, gravit, rhoi
+         wave_dep_welding, wave_spec, bignum, gravit, rhoi
       use icepack_tracers, only: nt_fsd, tr_fsd, nfsd, ncat
       use icepack_warnings, only: warnstr, icepack_warnings_add
       use icepack_warnings, only: icepack_warnings_setabort, icepack_warnings_aborted
@@ -955,7 +955,7 @@
 
       wave_sig_ht_local = c0
       if (present(wave_sig_ht)) wave_sig_ht_local = wave_sig_ht
-      use_wave_limit = wave_depedent_welding .and. present(wave_sig_ht) .and. present(wave_spectrum) &
+      use_wave_limit = wave_dep_welding .and. present(wave_sig_ht) .and. present(wave_spectrum) &
                   .and. present(wavefreq)
 
       new_size = nfsd

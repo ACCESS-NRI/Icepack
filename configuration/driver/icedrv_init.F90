@@ -128,7 +128,7 @@
       integer (kind=int_kind) :: ntrcr
       logical (kind=log_kind) :: tr_iage, tr_FY, tr_lvl, tr_pond, tr_snow
       logical (kind=log_kind) :: tr_iso, tr_aero, tr_fsd
-      logical (kind=log_kind) :: tr_pond_lvl, tr_pond_topo, tr_pond_sealvl, wave_spec, wave_depedent_welding
+      logical (kind=log_kind) :: tr_pond_lvl, tr_pond_topo, tr_pond_sealvl, wave_spec, wave_dep_welding
       integer (kind=int_kind) :: nt_Tsfc, nt_sice, nt_qice, nt_qsno, nt_iage, nt_FY
       integer (kind=int_kind) :: nt_alvl, nt_vlvl, nt_apnd, nt_hpnd, nt_ipnd, &
                                  nt_smice, nt_smliq, nt_rhos, nt_rsnw, &
@@ -161,7 +161,7 @@
         a_rapid_mode,   Rac_rapid_mode,  aspect_rapid_mode,             &
         dSdt_slow_mode, phi_c_slow_mode, phi_i_mushy,                   &
         floediam,       c_weld,         hfrazilmin,      weld_method,     &
-        wave_depedent_welding, Tliquidus_max,    hi_min,      &
+        wave_dep_welding, Tliquidus_max,    hi_min,      &
         tscale_pnd_drain
 
       namelist /dynamics_nml/ &
@@ -243,7 +243,7 @@
            semi_implicit_Tsfc_out=semi_implicit_Tsfc, &
            vapor_flux_correction_out=vapor_flux_correction, &
            floediam_out=floediam, c_weld_out=c_weld, weld_method_out=weld_method, &
-           wave_depedent_welding_out=wave_depedent_welding, hfrazilmin_out=hfrazilmin, &
+           wave_dep_welding_out=wave_dep_welding, hfrazilmin_out=hfrazilmin, &
            update_ocn_f_out = update_ocn_f, cpl_frazil_out = cpl_frazil, &
            conduct_out=conduct, a_rapid_mode_out=a_rapid_mode, &
            Rac_rapid_mode_out=Rac_rapid_mode, &
@@ -782,7 +782,7 @@
 
          write(nu_diag,1000) ' c_weld                    = ', c_weld
          write(nu_diag,1030) ' weld_method               = ', trim(weld_method)
-         write(nu_diag,1010) ' wave_depedent_welding     = ', wave_depedent_welding
+         write(nu_diag,1010) ' wave_dep_welding     = ', wave_dep_welding
          write(nu_diag,1000) ' rfracmin                  = ', rfracmin
          write(nu_diag,1000) ' rfracmax                  = ', rfracmax
          if (tr_pond_lvl .or. tr_pond_sealvl) then
@@ -1052,7 +1052,7 @@
            pndaspect_in=pndaspect, hs1_in=hs1, hp1_in=hp1, &
            apnd_sl_in=apnd_sl, tscale_pnd_drain_in=tscale_pnd_drain, &
            floediam_in=floediam, c_weld_in=c_weld, weld_method_in=weld_method, &
-           wave_depedent_welding_in=wave_depedent_welding, hfrazilmin_in=hfrazilmin, &
+           wave_dep_welding_in=wave_dep_welding, hfrazilmin_in=hfrazilmin, &
            ktherm_in=ktherm, calc_Tsfc_in=calc_Tsfc, &
            semi_implicit_Tsfc_in=semi_implicit_Tsfc, &
            vapor_flux_correction_in=vapor_flux_correction, &
