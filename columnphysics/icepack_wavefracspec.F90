@@ -729,11 +729,10 @@
 !  3. Rather than computing fracture lengths like Horvat and Tziperman (2015), 
 !     we use a log-normal distribution for the fracture histgram
 !  
-! Note: The log-normal parametersation was fit from offline simulations of
+! Note: The lognormal parametersation was fit from offline simulations of
 !       the Horvat and Tziperman (2015) breakup model but with the 
 !       ice-covered dispersion relation (rather than the open water).
-!       Scale and shape parameters of the distribution are functions of peak wavelength
-!       and peak period, respectively.
+!       Fitted slope estimate for mean
 !
 !  References:
 !
@@ -788,27 +787,26 @@
          k_wtr,                   & ! Wavenumber in water (1/m)
          T_peak,                  & ! Peak period [s]
          lam_peak,                & ! Peak wavelength [m]
-         flexural_ridgity,        & ! Flexural ridgity term of dispersion relation
+         flexural_rigidity,        & ! Flexural rigidity term of dispersion relation
          mass_loading,            & ! Gravity term of dispersion relation
          L,                       & ! Length scale for non-dimensionalising dispersion relation
          del,                     & ! Non-dimensional parameter for dispersion relation
          k_dimless,               & ! Non-dimensional wavenumber for dispersion relation
          f_disp,                  & ! Dispersion relation function
          df_disp,                 & ! Derivative of dispersion relation function
-         scale_ln,                & ! Scale parameter for log-normal distribution
+         mean_rad,                & ! Mean of floe radii
+         var_rad,                 & ! Variance of floe radii 
+         mu_ln,                   & ! Scale parameter for log-normal distribution
          sigma_ln,                & ! Spread parameter for log-normal distribution 
-         loc_ln                     ! Location parameter for log-normal distribution 
+         sigma2_ln                  ! Variance parameter for log-normal distribution 
 
       real (kind=dbl_kind), parameter :: &
          critical_strain = 4.99e-5,   & ! critical strain threshold
          critical_probability = 0.37, & ! Breaking probability threshold (Williams et al., 2013b)
          youngs_modulus = 5.5e9,      & ! Young's modulus (Williams et al., 2013b)
          poisson_ratio = 0.3,         & ! Poisson's ratio (Williams et al., 2013b)
-         tolerance_ice = 0.1,         & ! Ice tolerance level for calculating the dispersion relation
-         scale_ln_coeff = 0.43324,    & ! Regression slope for scale parameter
-         scale_ln_int = 3.67877,      & ! Regression intercept for scale parameter
-         shape_ln_coeff = 0.00558,    & ! Regression slope for shape parameter
-         shape_ln_int = 0.08852       ! Regression intercept for shape parameter
+         mean_ln_slope = 0.5,         & ! Fitted slope of mean of lognormal distribution
+         var_ln_const = 14.020389       ! Fitted variance of lognormal distribution (m^2)
 
                                         
 
@@ -834,7 +832,7 @@
 
       ! Terms of the dispersion relation
       mass_loading     = rhoi * hbar / rhow
-      flexural_ridgity = youngs_modulus * (hbar**3) / (12.0d0 * rhow * gravit * (1.0d0 - poisson_ratio**2))
+      flexural_rigidity = youngs_modulus * (hbar**3) / (12.0d0 * (1.0d0 - poisson_ratio**2))
 
       do j = 1, nfreq
          omega = c2*pi * wavefreq(j)
@@ -842,8 +840,8 @@
          k_wtr = (c2*pi * wavefreq (j))**2/gravit
 
          ! Find the roots of the dispersion relation
-         L = sqrt((flexural_ridgity/rhow) / omega**2)
-         del = gravit / (L * omega**2) - (rhoi*hbar / rhow) / L
+         L = (flexural_rigidity / (rhow * omega**2))**0.2d0
+         del = gravit / (L * omega**2) - mass_loading / L
          ! Newton-Raphson root finding for tolerance 1e-6 and max 50 iterations
          k_dimless = newton_root_dimless(k_wtr*L, del, 1.0d-6, 50)
          k_ice(j) = k_dimless / L
@@ -854,10 +852,10 @@
          E_ice (j) = (hbar/c2) * k_ice (j) **2 
       end do
 
-      ! Variance of strain field (eq. 9 of Williamset al., 2013b)
+      ! Variance of strain field (eq. 9 of Williamset al., 2013a)
       strain_variance = SQRT( SUM( E_ice(:)**2 * spec_efreq(:)*dwavefreq(:) ) )
       
-      ! Probability of strain exceeding breaking strain (eq. 10 of Williamset al., 2013b)
+      ! Probability of strain exceeding breaking strain (eq. 10 of Williamset al., 2013a)
       prob_sig_strain = EXP( -critical_strain / (c2*strain_variance) )
 
       ! Initialise
@@ -866,24 +864,28 @@
       
       T_peak = 1/wavefreq(MAXLOC(spec_efreq, DIM=1))
       lam_peak = lam_ice(MAXLOC(spec_efreq, DIM=1))
+
+      ! Convert floe diameter moments to radius moments: r = D / 2
+      mean_rad = (mean_ln_slope * lam_peak) / c2
+      var_rad  = var_ln_const / c4
+
+      sigma2_ln = log(1.0 + var_rad / mean_rad**2)
+      sigma_ln  = sqrt(sigma2_ln)
+      mu_ln     = log(mean_rad) - p5 * sigma2_ln
       
       if (prob_sig_strain > critical_probability) then
-         ! Linear fits of the lognormal parameters
-         loc_ln = c0 
-         scale_ln = scale_ln_coeff * lam_peak + scale_ln_int
-         sigma_ln = shape_ln_coeff * T_peak + shape_ln_int
-
+        
          do k = 1, nfsd
             ! Number PDF
-            nfsd_tmp(k) = c1/ ((floe_rad_c(k)-loc_ln) * sigma_ln * sqrt(c2 * pi)) * &
-               EXP( - ( LOG((floe_rad_c(k)-loc_ln)/scale_ln)**2 ) / (c2 * sigma_ln**2) ) 
+            nfsd_tmp(k) = c1 / (floe_rad_c(k) * sigma_ln * sqrt(c2 * pi)) * &
+                   exp( - (log(floe_rad_c(k)) - mu_ln)**2 / (c2 * sigma_ln**2) )
              
             ! Number PMF = PDF * delta r (nfsd_tmp = afsd_tmp/floe_area_c from welding code)
-            nfsd_tmp(j) = nfsd_tmp(k) * floe_binwidth(k)
+            nfsd_tmp(k) = nfsd_tmp(k) * floe_binwidth(k)
          enddo
 
          ! normalize
-         if (SUM(nfsd_tmp) /= c0) nfsd_tmp(:) = nfsd_tmp(:) / SUM(nfsd_tmp(:))
+         if (SUM(nfsd_tmp) > puny) nfsd_tmp(:) = nfsd_tmp(:) / SUM(nfsd_tmp(:))
 
          
          ! Compute the integral kernel
@@ -892,7 +894,7 @@
          end do
 
          ! ... and normalize
-         if (SUM(frac_local) /= c0) frac_local(:) = frac_local(:) / SUM(frac_local(:))
+         if (SUM(frac_local) > puny) frac_local(:) = frac_local(:) / SUM(frac_local(:))
          
          ! debug
          if (debug_lognormal) then
@@ -903,8 +905,8 @@
             print *, 'hbar = ', hbar
             print *, 'lambda_p = ', lam_peak
             print *, 'T_peak = ', T_peak
-            print *, 'scale_ln = ', scale_ln
-            print *, 'sigma_ln = ', sigma_ln
+            print *, 'mean_rad = ', mean_rad
+            print *, 'mu_ln = ', mu_ln
             print *, 'characteristic_diameter = ', characteristic_diameter
             print *, 'frac_local = ', frac_local
             
