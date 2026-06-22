@@ -32,6 +32,8 @@
       use icepack_parameters, only: p01, p5, c0, c1, c2, c3, c4, c10
       use icepack_parameters, only: bignum, puny, gravit, pi, rhow, rhoi
       use icepack_parameters, only: wave_spec_type, wave_height_type
+      use icepack_parameters, only: wavefrac_min_sig_ht, critical_strain, &
+         critical_probability, mean_ln_slope, var_ln_const
       use icepack_tracers, only: nt_fsd, ncat, nfsd
       use icepack_warnings, only: warnstr, icepack_warnings_add
       use icepack_warnings, only: icepack_warnings_setabort,  icepack_warnings_aborted
@@ -269,7 +271,7 @@
 
       ! do not try to fracture for minimal ice concentration or zero wave spectrum
       ! if ((aice > p01).and.(MAXVAL(wave_spectrum(:)) > puny)) then
-      if ((aice > p01).and.(local_sig_ht > 0.001)) then
+      if ((aice > p01).and.(local_sig_ht > wavefrac_min_sig_ht)) then
       ! if ((aice > p01).and.(local_sig_ht>0.1_dbl_kind)) then
 
          hbar = vice / aice
@@ -801,12 +803,8 @@
          sigma2_ln                  ! Variance parameter for log-normal distribution 
 
       real (kind=dbl_kind), parameter :: &
-         critical_strain = 4.99e-5,   & ! critical strain threshold
-         critical_probability = 0.37, & ! Breaking probability threshold (Williams et al., 2013b)
          youngs_modulus = 5.5e9,      & ! Young's modulus (Williams et al., 2013b)
-         poisson_ratio = 0.3,         & ! Poisson's ratio (Williams et al., 2013b)
-         mean_ln_slope = 0.5,         & ! Fitted slope of mean of lognormal distribution
-         var_ln_const = 14.020389       ! Fitted variance of lognormal distribution (m^2)
+         poisson_ratio = 0.3            ! Poisson's ratio (Williams et al., 2013b)
 
                                         
 

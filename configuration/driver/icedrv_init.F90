@@ -101,7 +101,9 @@
          mu_rdg, hs0, dpscale, rfracmin, rfracmax, pndaspect, hs1, hp1, &
          apnd_sl, tscale_pnd_drain, itd_area_min, itd_mass_min, &
          a_rapid_mode, Rac_rapid_mode, aspect_rapid_mode, dSdt_slow_mode, &
-         phi_c_slow_mode, phi_i_mushy, kalg, emissivity, floediam, c_weld, hfrazilmin, &
+         phi_c_slow_mode, phi_i_mushy, kalg, emissivity, floediam, c_weld, &
+         wavefrac_min_sig_ht, critical_strain, critical_probability, mean_ln_slope, &
+         var_ln_const, hfrazilmin, &
          rsnw_fall, rsnw_tmax, rhosnew, rhosmin, rhosmax, &
          windmin, drhosdwind, snwlvlfac, snw_growth_wet, drsnw_min, snwliq_max
 
@@ -160,8 +162,10 @@
         kitd,           ktherm,          ksno,     conduct,             &
         a_rapid_mode,   Rac_rapid_mode,  aspect_rapid_mode,             &
         dSdt_slow_mode, phi_c_slow_mode, phi_i_mushy,                   &
-        floediam,       c_weld,         hfrazilmin,      weld_method,     &
-        wave_dep_welding, Tliquidus_max,    hi_min,      &
+        floediam,       c_weld,         wavefrac_min_sig_ht,              &
+        critical_strain, critical_probability, mean_ln_slope, var_ln_const, &
+        hfrazilmin,      weld_method,     wave_dep_welding,                &
+        Tliquidus_max,   hi_min,                                          &
         tscale_pnd_drain
 
       namelist /dynamics_nml/ &
@@ -242,8 +246,13 @@
            ktherm_out=ktherm, calc_Tsfc_out=calc_Tsfc, &
            semi_implicit_Tsfc_out=semi_implicit_Tsfc, &
            vapor_flux_correction_out=vapor_flux_correction, &
-           floediam_out=floediam, c_weld_out=c_weld, weld_method_out=weld_method, &
-           wave_dep_welding_out=wave_dep_welding, hfrazilmin_out=hfrazilmin, &
+           floediam_out=floediam, c_weld_out=c_weld, &
+           wavefrac_min_sig_ht_out=wavefrac_min_sig_ht, &
+           critical_strain_out=critical_strain, &
+           critical_probability_out=critical_probability, &
+           mean_ln_slope_out=mean_ln_slope, var_ln_const_out=var_ln_const, &
+           weld_method_out=weld_method, wave_dep_welding_out=wave_dep_welding, &
+           hfrazilmin_out=hfrazilmin, &
            update_ocn_f_out = update_ocn_f, cpl_frazil_out = cpl_frazil, &
            conduct_out=conduct, a_rapid_mode_out=a_rapid_mode, &
            Rac_rapid_mode_out=Rac_rapid_mode, &
@@ -626,6 +635,11 @@
       if (c_weld < c0) then
          write (nu_diag,*) 'WARNING: c_weld < 0; setting c_weld = 0'
          c_weld = c0
+      endif
+
+      if (wavefrac_min_sig_ht < c0) then
+         write (nu_diag,*) 'WARNING: wavefrac_min_sig_ht < 0; setting wavefrac_min_sig_ht = 0'
+         wavefrac_min_sig_ht = c0
       endif
 
       rfracmin = min(max(rfracmin,c0),c1)
@@ -1051,8 +1065,13 @@
            rfracmin_in=rfracmin, rfracmax_in=rfracmax, &
            pndaspect_in=pndaspect, hs1_in=hs1, hp1_in=hp1, &
            apnd_sl_in=apnd_sl, tscale_pnd_drain_in=tscale_pnd_drain, &
-           floediam_in=floediam, c_weld_in=c_weld, weld_method_in=weld_method, &
-           wave_dep_welding_in=wave_dep_welding, hfrazilmin_in=hfrazilmin, &
+           floediam_in=floediam, c_weld_in=c_weld, &
+           wavefrac_min_sig_ht_in=wavefrac_min_sig_ht, &
+           critical_strain_in=critical_strain, &
+           critical_probability_in=critical_probability, &
+           mean_ln_slope_in=mean_ln_slope, var_ln_const_in=var_ln_const, &
+           weld_method_in=weld_method, wave_dep_welding_in=wave_dep_welding, &
+           hfrazilmin_in=hfrazilmin, &
            ktherm_in=ktherm, calc_Tsfc_in=calc_Tsfc, &
            semi_implicit_Tsfc_in=semi_implicit_Tsfc, &
            vapor_flux_correction_in=vapor_flux_correction, &

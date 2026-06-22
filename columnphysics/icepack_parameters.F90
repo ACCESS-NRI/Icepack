@@ -327,6 +327,13 @@
          c_weld    = 1.0e-6_dbl_kind ! welding proportionality constant (m^-2 s^-1)
 
       real (kind=dbl_kind), public :: &
+         wavefrac_min_sig_ht  = 0.001_dbl_kind,  & ! minimum wave height for wave fracture (m)
+         critical_strain      = 4.99e-5_dbl_kind,& ! critical strain threshold
+         critical_probability = 0.37_dbl_kind,   & ! breaking probability threshold
+         mean_ln_slope        = 0.5_dbl_kind,    & ! fitted slope of lognormal mean
+         var_ln_const         = 14.020389_dbl_kind ! fitted lognormal variance (m^2)
+
+      real (kind=dbl_kind), public :: &
          floediam  = 300.0_dbl_kind   ! effective floe diameter for lateral melt (m)
 
       logical (kind=log_kind), public :: &
@@ -596,7 +603,9 @@
          atmiter_conv_in, calc_dragio_in, &
          tfrz_option_in, kitd_in, kcatbound_in, hs0_in, frzpnd_in, &
          apnd_sl_in, saltflux_option_in, congel_freeze_in, &
-         floeshape_in, c_weld_in, weld_method_in, wave_spec_in, wave_dep_welding_in, &
+         floeshape_in, c_weld_in, wavefrac_min_sig_ht_in, critical_strain_in, &
+         critical_probability_in, mean_ln_slope_in, var_ln_const_in, &
+         weld_method_in, wave_spec_in, wave_dep_welding_in, &
          wave_spec_type_in, wave_height_type_in, nfreq_in, &
          dpscale_in, rfracmin_in, rfracmax_in, pndaspect_in, hs1_in, hp1_in, &
          bgc_flux_type_in, z_tracers_in, scale_bgc_in, solve_zbgc_in, &
@@ -884,7 +893,12 @@
 
       real (kind=dbl_kind), intent(in), optional :: &
          floeshape_in, &      ! constant from Rothrock 1984 (unitless)
-         c_weld_in         ! welding proportionality constant (m^-2 s^-1)
+         c_weld_in, &         ! welding proportionality constant (m^-2 s^-1)
+         wavefrac_min_sig_ht_in, & ! minimum wave height for wave fracture (m)
+         critical_strain_in, & ! critical strain threshold
+         critical_probability_in, & ! breaking probability threshold
+         mean_ln_slope_in, &  ! fitted slope of lognormal mean
+         var_ln_const_in      ! fitted lognormal variance (m^2)
 
       logical (kind=log_kind), intent(in), optional :: &
          wave_spec_in, &              ! if true, use wave forcing
@@ -1243,6 +1257,11 @@
       if (present(kcatbound_in)         ) kcatbound        = kcatbound_in
       if (present(floeshape_in)         ) floeshape        = floeshape_in
       if (present(c_weld_in)            ) c_weld          = c_weld_in
+      if (present(wavefrac_min_sig_ht_in)) wavefrac_min_sig_ht = wavefrac_min_sig_ht_in
+      if (present(critical_strain_in)   ) critical_strain = critical_strain_in
+      if (present(critical_probability_in)) critical_probability = critical_probability_in
+      if (present(mean_ln_slope_in)     ) mean_ln_slope   = mean_ln_slope_in
+      if (present(var_ln_const_in)      ) var_ln_const    = var_ln_const_in
       if (present(weld_method_in)       ) weld_method     = weld_method_in
       if (present(wave_spec_in)         ) wave_spec        = wave_spec_in
       if (present(wave_dep_welding_in)) wave_dep_welding = wave_dep_welding_in
@@ -1617,7 +1636,9 @@
          atmiter_conv_out, calc_dragio_out, &
          tfrz_option_out, kitd_out, kcatbound_out, hs0_out, frzpnd_out, &
          apnd_sl_out, saltflux_option_out, congel_freeze_out, &
-         floeshape_out, c_weld_out, weld_method_out, wave_spec_out, wave_dep_welding_out, &
+         floeshape_out, c_weld_out, wavefrac_min_sig_ht_out, critical_strain_out, &
+         critical_probability_out, mean_ln_slope_out, var_ln_const_out, &
+         weld_method_out, wave_spec_out, wave_dep_welding_out, &
          wave_spec_type_out, wave_height_type_out, nfreq_out, &
          dpscale_out, rfracmin_out, rfracmax_out, pndaspect_out, hs1_out, hp1_out, &
          bgc_flux_type_out, z_tracers_out, scale_bgc_out, solve_zbgc_out, &
@@ -1915,7 +1936,12 @@
 
       real (kind=dbl_kind), intent(out), optional :: &
          floeshape_out, &     ! constant from Rothrock 1984 (unitless)
-         c_weld_out        ! welding proportionality constant (m^-2 s^-1)
+         c_weld_out, &        ! welding proportionality constant (m^-2 s^-1)
+         wavefrac_min_sig_ht_out, & ! minimum wave height for wave fracture (m)
+         critical_strain_out, & ! critical strain threshold
+         critical_probability_out, & ! breaking probability threshold
+         mean_ln_slope_out, &  ! fitted slope of lognormal mean
+         var_ln_const_out      ! fitted lognormal variance (m^2)
 
       logical (kind=log_kind), intent(out), optional :: &
          wave_spec_out, &             ! if true, use wave forcing
@@ -2306,6 +2332,11 @@
       if (present(kcatbound_out)         ) kcatbound_out    = kcatbound
       if (present(floeshape_out)         ) floeshape_out    = floeshape
       if (present(c_weld_out)           ) c_weld_out      = c_weld
+      if (present(wavefrac_min_sig_ht_out)) wavefrac_min_sig_ht_out = wavefrac_min_sig_ht
+      if (present(critical_strain_out) ) critical_strain_out = critical_strain
+      if (present(critical_probability_out)) critical_probability_out = critical_probability
+      if (present(mean_ln_slope_out)   ) mean_ln_slope_out = mean_ln_slope
+      if (present(var_ln_const_out)    ) var_ln_const_out = var_ln_const
       if (present(weld_method_out)       ) weld_method_out = weld_method
       if (present(wave_spec_out)         ) wave_spec_out    = wave_spec
       if (present(wave_dep_welding_out)) wave_dep_welding_out = wave_dep_welding
@@ -2623,6 +2654,11 @@
         write(iounit,*) "  kcatbound  = ", kcatbound
         write(iounit,*) "  floeshape  = ", floeshape
         write(iounit,*) "  c_weld     = ", c_weld
+        write(iounit,*) "  wavefrac_min_sig_ht   = ", wavefrac_min_sig_ht
+        write(iounit,*) "  critical_strain       = ", critical_strain
+        write(iounit,*) "  critical_probability  = ", critical_probability
+        write(iounit,*) "  mean_ln_slope         = ", mean_ln_slope
+        write(iounit,*) "  var_ln_const          = ", var_ln_const
         write(iounit,*) "  weld_method = ", trim(weld_method)
         write(iounit,*) "  wave_spec  = ", wave_spec
         write(iounit,*) "  wave_dep_welding = ", wave_dep_welding
